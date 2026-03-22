@@ -1,0 +1,87 @@
+name: Claude Code CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+
+jobs:
+  review:
+    name: Code Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://github.com/anthropics/claude-code/releases/download/latest/claude-code-linux-amd64 -o /tmp/claude-code
+          chmod +x /tmp/claude-code
+          sudo mv /tmp/claude-code /usr/local/bin/claude
+
+      - name: Run Code Review (--bare 模式)
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr_diff.txt
+          # --bare flag: 跳过 hooks/LSP，启动时间 ~3s → <500ms
+          cat /tmp/pr_diff.txt | claude -p --bare \
+            --model claude-sonnet-4-20250514 \
+            --system '你是一个严格的代码审查助手。审查 PR 代码变更，关注：安全性、性能、代码风格、测试覆盖。' \
+            | tee "$GITHUB_STEP_SUMMARY"
+
+  test-gen:
+    name: Auto Test Generation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://github.com/anthropics/claude-code/releases/download/latest/claude-code-linux-amd64 -o /tmp/claude-code
+          chmod +x /tmp/claude-code
+          sudo mv /tmp/claude-code /usr/local/bin/claude
+
+      - name: Generate Tests (--bare 模式)
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 | grep -E '\.(js|ts|jsx|tsx)$' | grep -v '\.test\.' | grep -v '\.spec\.' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            for file in $CHANGED_FILES; do
+              echo "=== 生成测试: $file ==="
+              cat "$file" | claude -p --bare \
+                --model claude-sonnet-4-20250514 \
+                --system '为这段代码生成 Jest 测试用例，覆盖边界条件和异常情况'
+              echo ""
+            done
+          fi
+
+  doc-gen:
+    name: Auto Doc Generation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://github.com/anthropics/claude-code/releases/download/latest/claude-code-linux-amd64 -o /tmp/claude-code
+          chmod +x /tmp/claude-code
+          sudo mv /tmp/claude-code /usr/local/bin/claude
+
+      - name: Generate API Docs (--bare 模式)
+        run: |
+          TS_FILES=$(git diff --name-only HEAD~1 | grep -E '\.ts$' | grep -v '\.d\.ts$' || true)
+          if [ -n "$TS_FILES" ]; then
+            for file in $TS_FILES; do
+              echo "=== 生成文档: $file ==="
+              claude -p --bare \
+                --model claude-sonnet-4-20250514 \
+                --system '为这段 TypeScript 代码生成 JSDoc 注释和 API 文档' \
+                < "$file"
+            done
+          fi
