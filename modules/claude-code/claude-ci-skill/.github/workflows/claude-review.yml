@@ -1,0 +1,72 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+      
+      - name: Run Claude Code Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # 获取 PR 上下文
+          PR_NUMBER=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+          PR_BODY=$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")
+          PR_DIFF=$(git diff origin/${{ github.base_ref }}..HEAD)
+          
+          # 构建上下文
+          cat > context.txt << 'EOF'
+          PR: #$PR_NUMBER
+          Body: $PR_BODY
+          
+          Diff:
+          EOF
+          echo "$PR_DIFF" >> context.txt
+          
+          # 执行审查
+          claude -p --bare --system 'Review this PR for security issues, bugs, and code quality improvements. Be concise.' < context.txt
+      
+      - name: Post Review Comment
+        if: always()
+        run: |
+          echo "Review completed. Check workflow logs for details."
+
+  test-generation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      
+      - name: Generate Tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          for file in $(find . -name "*.py" -o -name "*.js" -o -name "*.ts" | head -5); do
+            echo "Generating tests for: $file"
+            claude -p --bare --system 'Generate unit tests for this file. Output only the test code.' < "$file" > "${file}.test$(ext $file)"
+          done
+      
+      - name: Upload Generated Tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-tests
+          path: "**/*.test*"
