@@ -1,16 +1,17 @@
 #!/bin/bash
-# AI Coding Fullstack Supervisor v8
+# AI Coding Fullstack Supervisor v10
 # 使用 github-utils.sh 公共函数库
 
 source "$(dirname "$0")/github-utils.sh"
 
 LOG_FILE="$HOME/Projects/ai-coding-fullstack/logs/supervisor.log"
 PROJECT_DIR="$HOME/Projects/ai-coding-fullstack"
+BRANCH_NAME=""
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" 2>/dev/null || echo "$*"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; }
 
 main() {
-    log "=== AI Coding Supervisor v8 ==="
+    log "=== AI Coding Supervisor v10 ==="
     
     # 1. 检查当前状态
     local state=$(get_current_state)
@@ -78,16 +79,17 @@ TESTEOF
     chmod +x "$PROJECT_DIR/modules/core/tests/test_$next_issue.sh"
     
     # 7. 分支操作
-    create_branch_and_push "$next_issue" || return 1
+    BRANCH_NAME="feature/issue-$next_issue"
+    create_branch "$next_issue" || return 1
     commit_changes "feat #$next_issue: Start $title"
     
     # 8. 推送分支
     log "推送分支..."
-    push_branch "feature/issue-$next_issue"
+    push_branch "$BRANCH_NAME"
     
     # 9. 创建 PR
     log "创建 PR..."
-    create_pr "$next_issue" "$title"
+    create_pr "$next_issue" "$title" "$BRANCH_NAME"
     
     log "=== Issue #$next_issue 处理完成 ==="
 }
