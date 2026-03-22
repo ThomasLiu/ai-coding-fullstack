@@ -1,0 +1,25 @@
+{
+  "servers": {
+    "chrome": {
+      "type": "browser",
+      "capabilities": ["automation", "screenshots", "navigation"],
+      "via": "openclaw-agent-browser"
+    },
+    "github": {
+      "type": "api",
+      "capabilities": ["repos", "issues", "prs", "actions"],
+      "via": "gh-cli"
+    },
+    "filesystem": {
+      "type": "native",
+      "capabilities": ["read", "write", "list", "watch"],
+      "via": "native-bash"
+    },
+    "memory": {
+      "type": "memory",
+      "capabilities": ["search", "get", "store"],
+      "via": "openclaw-memory"
+    }
+  },
+  "initialized_at": "2026-03-22T17:51:12Z"
+}
