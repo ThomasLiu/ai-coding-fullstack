@@ -58,3 +58,21 @@ https://github.com/ThomasLiu/ai-coding-fullstack/pull/24
 [2026-03-23 07:51:03] 标题: Issue 33
 [2026-03-23 07:51:03] TDD RED: 创建测试...
 [2026-03-23 07:51:03] 创建新分支: feature/issue-33
+[2026-03-23 07:51:03]   /Users/thomas/Projects/ai-coding-fullstack/scripts/github-utils.sh: line 139: timeout: command not found
+[2026-03-23 07:51:03] 创建 PR...
+[2026-03-23 07:51:04]   Warning: 1 uncommitted change
+[2026-03-23 07:51:04]   aborted: you must first push the current branch to a remote, or use the --head flag
+[2026-03-23 07:51:04] === Issue #33 处理完成 ===
+[2026-03-23 07:51:49] === AI Coding Supervisor v8 ===
+[2026-03-23 07:51:49] 当前状态: state=working, current_issue=33
+[2026-03-23 07:51:49] Issue #33 正在处理中
+[2026-03-23 07:51:52] PR 状态: none
+[2026-03-23 07:51:52] PR 已关闭或不存在，重置
+[2026-03-23 07:51:52] 状态更新: state=idle, current=null
+[2026-03-23 07:52:01] === AI Coding Supervisor v8 ===
+[2026-03-23 07:52:02] 当前状态: state=idle, current_issue=None
+[2026-03-23 07:52:06] 选取 Issue #33
+[2026-03-23 07:52:06] 状态更新: state=working, current=33
+[2026-03-23 07:52:07] 标题: Issue 33
+[2026-03-23 07:52:07] TDD RED: 创建测试...
+[2026-03-23 07:52:08] 切换到已有分支: feature/issue-33

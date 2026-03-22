@@ -6,6 +6,19 @@ LOG_FILE="$HOME/Projects/ai-coding-fullstack/logs/supervisor.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" 2>/dev/null || echo "$*"; }
 
+# 带超时的执行 (兼容 macOS)
+run_with_timeout() {
+    local seconds="$1"
+    shift
+    local cmd="$*"
+    # macOS 没有 timeout，用 perl 实现
+    if command -v timeout &>/dev/null; then
+        timeout "$seconds" $cmd
+    else
+        perl -e 'alarm shift; exec @ARGV' "$seconds" $cmd
+    fi
+}
+
 # 检查 PR 状态
 check_pr_status() {
     local issue_num="$1"
@@ -13,18 +26,21 @@ check_pr_status() {
     local count
     
     count=$(gh pr list --head "$branch_name" --state merged 2>/dev/null | wc -l | tr -d ' ')
+    [[ -z "$count" ]] && count=0
     if [[ "$count" -gt 0 ]]; then
         echo "merged"
         return
     fi
     
     count=$(gh pr list --head "$branch_name" --state open 2>/dev/null | wc -l | tr -d ' ')
+    [[ -z "$count" ]] && count=0
     if [[ "$count" -gt 0 ]]; then
         echo "open"
         return
     fi
     
     count=$(gh pr list --head "$branch_name" --state closed 2>/dev/null | wc -l | tr -d ' ')
+    [[ -z "$count" ]] && count=0
     if [[ "$count" -gt 0 ]]; then
         echo "closed"
         return
@@ -75,7 +91,7 @@ EOF
 
 # 检查是否有未完成的分支
 get_pending_branch() {
-    timeout 10 git -C "$PROJECT_DIR" branch -r 2>/dev/null | grep "feature/" | grep -v "feature/issue-1" | grep -v "feature/issue-None" | head -1 | sed 's/.*origin\///' | tr -d ' '
+    run_with_timeout 10 git -C "$PROJECT_DIR" branch -r 2>/dev/null | grep "feature/" | grep -v "feature/issue-1" | grep -v "feature/issue-None" | head -1 | sed 's/.*origin\///' | tr -d ' '
 }
 
 # 选择下一个 Issue
@@ -86,7 +102,7 @@ select_next_issue() {
     local current=$(get_current_issue)
     [[ "$current" == "null" ]] && current=""
     
-    # 获取所有 open issues (按 issue 号降序，即最新创建的优先)
+    # 获取所有 open issues
     local issues=$(gh issue list --state open --limit 20 2>/dev/null)
     
     while IFS= read -r line; do
@@ -113,7 +129,7 @@ create_branch_and_push() {
     
     cd "$PROJECT_DIR"
     
-    timeout 10 git pull origin main 2>/dev/null || true
+    run_with_timeout 10 git pull origin main 2>/dev/null || true
     
     if git rev-parse --verify "$branch_name" 2>/dev/null; then
         git checkout "$branch_name" 2>/dev/null || true
@@ -136,7 +152,7 @@ push_branch() {
     local branch_name="$1"
     cd "$PROJECT_DIR"
     
-    timeout 30 git push -u origin "$branch_name" 2>&1 | while read line; do
+    run_with_timeout 30 git push -u origin "$branch_name" 2>&1 | while read line; do
         log "  $line"
     done
 }
