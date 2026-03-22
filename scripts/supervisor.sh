@@ -92,7 +92,7 @@ select_next_issue() {
     cd "$PROJECT_DIR"
     
     # 获取所有 open issues (按创建时间排序)
-    local issues=$(gh issue list --state open --sort created --limit 20 2>/dev/null)
+    local issues=$(gh issue list --state open --limit 20 2>/dev/null)
     
     if [[ -z "$issues" ]]; then
         echo '{"number":null,"title":null}'
@@ -122,7 +122,8 @@ select_next_issue() {
         fi
         
         # 直接输出 issue 编号，标题单独获取
-        echo "$issue_num"
+        local issue_title=$(gh issue view "$issue_num" --json title --jq '.title')
+        echo "{\"number\":$issue_num,\"title\":\"$issue_title\"}"
         return
         
     done <<< "$issues"
