@@ -12,3 +12,49 @@
 [2026-03-23 04:20:49] [INFO] TDD GREEN: 创建最小实现...
 [2026-03-23 04:20:49] [INFO] TDD GREEN: 测试仍失败，需要完善实现
 [2026-03-23 04:20:49] [INFO] TDD REFACTOR: 重构 (如需要)
+[2026-03-23 04:20:49] [INFO] 代码已提交
+[2026-03-23 04:20:49] [INFO] 推送分支到远程...
+[2026-03-23 04:20:53] [INFO]   remote:
+[2026-03-23 04:20:53] [INFO]   remote: Create a pull request for 'feature/issue-17' on GitHub by visiting:
+[2026-03-23 04:20:53] [INFO]   remote:      https://github.com/ThomasLiu/ai-coding-fullstack/pull/new/feature/issue-17
+[2026-03-23 04:20:53] [INFO]   remote:
+[2026-03-23 04:20:53] [INFO]   To github.com:ThomasLiu/ai-coding-fullstack.git
+[2026-03-23 04:20:53] [INFO]   * [new branch]      feature/issue-17 -> feature/issue-17
+[2026-03-23 04:20:53] [INFO]   branch 'feature/issue-17' set up to track 'origin/feature/issue-17'.
+[2026-03-23 04:20:53] [INFO] 创建 PR...
+[2026-03-23 04:20:56] [INFO] PR 创建成功: Warning: 1 uncommitted change
+https://github.com/ThomasLiu/ai-coding-fullstack/pull/24
+[2026-03-23 04:20:58] [INFO] === Issue #17 TDD 流程完成 ===
+[2026-03-23 04:20:58] [INFO] Issue #17 TDD 完成
+[2026-03-23 04:20:58] [INFO] ===========================================
+[2026-03-23 04:20:58] [INFO] Supervisor 运行完成
+[2026-03-23 04:20:58] [INFO] ===========================================
+[2026-03-23 07:39:44] INFO: === AI Coding Fullstack Supervisor v4 ===
+[2026-03-23 07:39:44] INFO: 当前状态: state=working, current_issue=17
+[2026-03-23 07:39:44] INFO: 检测到 Issue #17 正在处理中
+[2026-03-23 07:39:47] INFO: Issue #17 仍有 open PR，跳过
+[2026-03-23 07:40:34] INFO: === AI Coding Fullstack Supervisor v4 ===
+[2026-03-23 07:40:34] INFO: 当前状态: state=working, current_issue=17
+[2026-03-23 07:40:34] INFO: 检测到 Issue #17 正在处理中
+[2026-03-23 07:40:37] INFO: Issue #17 仍有 open PR，跳过
+[2026-03-23 07:41:13] INFO: === AI Coding Fullstack Supervisor v4 ===
+[2026-03-23 07:41:13] INFO: 当前状态: state=working, current_issue=17
+[2026-03-23 07:41:13] INFO: 检测到 Issue #17 正在处理中
+[2026-03-23 07:41:15] INFO: Issue #17 仍有 open PR，跳过
+[2026-03-23 07:49:40] === AI Coding Supervisor v7 ===
+[2026-03-23 07:49:41] 当前状态: state=working, current_issue=17
+[2026-03-23 07:49:41] Issue #17 正在处理中
+[2026-03-23 07:49:44] PR 状态: none
+[2026-03-23 07:49:44] PR 已关闭或不存在，重置
+[2026-03-23 07:49:44] 状态更新: state=idle, current=null
+[2026-03-23 07:50:19] === AI Coding Supervisor v7 ===
+[2026-03-23 07:50:19] 当前状态: state=idle, current_issue=None
+[2026-03-23 07:50:19] 没有待处理的 Issue
+[2026-03-23 07:50:19] 状态更新: state=idle, current=null
+[2026-03-23 07:50:56] === AI Coding Supervisor v7 ===
+[2026-03-23 07:50:56] 当前状态: state=idle, current_issue=None
+[2026-03-23 07:51:01] 选取 Issue #33
+[2026-03-23 07:51:01] 状态更新: state=working, current=33
+[2026-03-23 07:51:03] 标题: Issue 33
+[2026-03-23 07:51:03] TDD RED: 创建测试...
+[2026-03-23 07:51:03] 创建新分支: feature/issue-33
