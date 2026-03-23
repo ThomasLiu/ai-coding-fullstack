@@ -246,8 +246,8 @@ Status: checklist-review done
 \`\`\`
 "
     
-    # 调用 Claude Code
-    local output_file="/tmp/claude_checklist_$$.txt"
+    # 调用 Claude Code，文件名包含 issue_num
+    local output_file="/tmp/claude_output_${issue_num}.txt"
     call_claude_code "checklist-review" "$prompt" > "$output_file"
     
     if [[ $? -eq 0 && -s "$output_file" ]]; then
@@ -910,15 +910,18 @@ check_and_advance() {
 # ============================================
 # 检查是否有未完成的输出需要发帖
 check_pending_output() {
-    local pending_files=$(ls -t /tmp/claude_checklist_*.txt 2>/dev/null | head -1)
-    if [[ -n "$pending_files" && -s "$pending_files" ]]; then
-        local issue_num=$(cat "$PROJECT_DIR/.supervisor/current_issue" 2>/dev/null)
-        if [[ -n "$issue_num" ]]; then
-            log "发现未完成的输出，发帖到 Issue #$issue_num"
-            post_to_github "$issue_num" "$pending_files"
-            rm -f "$pending_files"
-            rm -f "$PROJECT_DIR/.supervisor/current_issue"
-        fi
+    # 查找所有未完成的输出文件
+    local pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null)
+    if [[ -n "$pending_files" ]]; then
+        for f in $pending_files; do
+            # 从文件名提取 issue_num: /tmp/claude_output_42.txt -> 42
+            local issue_num=$(echo "$f" | grep -oE '[0-9]+$' | tail -1)
+            if [[ -n "$issue_num" ]]; then
+                log "发现未完成的输出，发帖到 Issue #$issue_num"
+                post_to_github "$issue_num" "$f"
+                rm -f "$f"
+            fi
+        done
     fi
 }
 
