@@ -27,15 +27,15 @@ log() {
 # 状态管理
 # ============================================
 get_state() {
-    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('state','idle'))" 2>/dev/null || echo "idle"
+    [[ -f "$SESSION_FILE" ]] && jq -r '.state // "idle"' "$SESSION_FILE" 2>/dev/null || echo "idle"
 }
 
 get_current_issue() {
-    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('current_issue','null'))" 2>/dev/null || echo "null"
+    [[ -f "$SESSION_FILE" ]] && jq -r '.current_issue // "null"' "$SESSION_FILE" 2>/dev/null || echo "null"
 }
 
 get_last_issue() {
-    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('last_issue','null'))" 2>/dev/null || echo "null"
+    [[ -f "$SESSION_FILE" ]] && jq -r '.last_issue // "null"' "$SESSION_FILE" 2>/dev/null || echo "null"
 }
 
 update_state() {
