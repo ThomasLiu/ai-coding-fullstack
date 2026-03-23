@@ -936,6 +936,8 @@ check_pending_output() {
     else
         log "DEBUG: 没有发现待处理的输出文件"
     fi
+    # 总是返回 0，避免 set -e 终止脚本
+    return 0
 }
 
 main() {
