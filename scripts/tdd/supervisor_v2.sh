@@ -785,13 +785,17 @@ final_review() {
 # ============================================
 select_next_issue() {
     cd "$PROJECT_DIR"
+    log "DEBUG: select_next_issue called"
     
     local current=$(get_current_issue)
     [[ "$current" == "null" ]] && current=""
     local last=$(get_last_issue)
     [[ "$last" == "null" ]] && last=""
     
+    log "DEBUG: current=$current, last=$last"
+    
     local issues=$(gh issue list --state open --limit 20 2>/dev/null)
+    log "DEBUG: found $(echo "$issues" | wc -l) issues"
     
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
