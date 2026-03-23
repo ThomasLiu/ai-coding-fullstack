@@ -169,19 +169,27 @@ post_to_github() {
     local comment_file=$2
     
     cd "$PROJECT_DIR"
+    log "DEBUG post_to_github: issue_num=$issue_num, file=$comment_file"
     
     if [[ -f "$comment_file" && -s "$comment_file" ]]; then
+        log "DEBUG: 文件存在且非空"
         # 提取 markdown 代码块内容
-        local body=$(awk '/^```markdown$/,/^```$/' "$comment_file" | sed '1d;$d')
+        local body
+        body=$(awk '/^```markdown$/,/^```$/' "$comment_file" | sed '1d;$d')
+        log "DEBUG: 提取的 body 长度: ${#body}"
         
         if [[ -n "$body" ]]; then
+            log "DEBUG: 发帖到 Issue #$issue_num (markdown)"
             gh issue comment "$issue_num" --body "$body"
             echo "已发帖到 Issue #$issue_num"
         else
+            log "DEBUG: 没有 markdown 代码块，使用全文"
             # 如果没有 markdown 代码块，直接发帖整个内容
             gh issue comment "$issue_num" --body "$(cat "$comment_file")"
             echo "已发帖到 Issue #$issue_num (全文)"
         fi
+    else
+        log "DEBUG: 文件不存在或为空"
     fi
 }
 
@@ -910,17 +918,23 @@ check_and_advance() {
 # 检查是否有未完成的输出需要发帖
 check_pending_output() {
     # 查找所有未完成的输出文件
-    local pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null)
+    local pending_files
+    pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null)
+    log "DEBUG: pending_files = [$pending_files]"
     if [[ -n "$pending_files" ]]; then
         for f in $pending_files; do
             # 从文件名提取 issue_num: /tmp/claude_output_42.txt -> 42
-            local issue_num=$(echo "$f" | grep -oE '[0-9]+$' | tail -1)
+            local issue_num
+            issue_num=$(echo "$f" | grep -oE '[0-9]+$' | tail -1)
+            log "DEBUG: processing file=$f, issue_num=[$issue_num]"
             if [[ -n "$issue_num" ]]; then
                 log "发现未完成的输出，发帖到 Issue #$issue_num"
                 post_to_github "$issue_num" "$f"
                 rm -f "$f"
             fi
         done
+    else
+        log "DEBUG: 没有发现待处理的输出文件"
     fi
 }
 
