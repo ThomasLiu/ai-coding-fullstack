@@ -801,7 +801,7 @@ create_pr_draft() {
 echo "Issue #PLACEHOLDER 验收测试 (占位)"
 exit 1  # 故意失败，因为功能还没实现
 TESTEOF
-    sed -i "s/PLACEHOLDER/$issue_num/g" "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
+    sed -i '' "s/PLACEHOLDER/$issue_num/g" "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
     chmod +x "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
     
     git add .
