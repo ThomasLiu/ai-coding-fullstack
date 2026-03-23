@@ -1,22 +1,31 @@
 #!/bin/bash
-# Issue TDD RED Acceptance Test
+# TDD RED Acceptance Test - PLACEHOLDER ISSUE
 # Issue: TITLE_REPLACED
-# Body: BODY_REPLACED
 set -e
 
 echo "========================================"
-echo "TDD RED Test: TITLE_REPLACED"
+echo "TDD RED Test: Acceptance Test for Issue"
+echo "Issue: TITLE_REPLACED"
 echo "========================================"
-echo ""
 
-# Check if the issue content was properly provided
-if [ "$1" = "--validate-issue" ]; then
-    echo "[FAIL] Issue content is not available."
-    echo "ERROR: TITLE_REPLACED and BODY_REPLACED are placeholders."
-    echo "Please provide the actual issue title and description."
+# Check if issue content is still placeholder
+if [ "$ISSUE_TITLE" = "TITLE_REPLACED" ] || [ -z "$ISSUE_TITLE" ]; then
+    echo "[FAIL] No valid issue title provided - test cannot proceed."
+    echo "       Issue title is still placeholder: TITLE_REPLACED"
     exit 1
 fi
 
-echo "[FAIL] Cannot generate tests: issue content is missing or incomplete."
-echo "Expected actual issue title and description, but received placeholders."
+if [ "$ISSUE_BODY" = "BODY_REPLACED" ] || [ -z "$ISSUE_BODY" ]; then
+    echo "[FAIL] No valid issue body provided - test cannot proceed."
+    echo "       Issue body is still placeholder: BODY_REPLACED"
+    exit 1
+fi
+
+# Placeholder: actual acceptance tests should be implemented here
+echo "[INFO] Issue title: $ISSUE_TITLE"
+echo "[INFO] Issue body: $ISSUE_BODY"
+echo ""
+echo "[FAIL] No acceptance criteria defined - this is a RED phase test."
+echo "       Implement the feature described in the issue to PASS this test."
+
 exit 1
