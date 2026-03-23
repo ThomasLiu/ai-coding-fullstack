@@ -26,7 +26,7 @@ branch_exists() {
 }
 get_current_issue() {
     local f="$PROJECT_DIR/.supervisor/session"
-    [[ -f "$f" ]] && python3 -c "import sys,json; print(json.load(open('$f')).get('current_issue','null'))" 2>/dev/null || echo null
+    [[ -f "$f" ]] && jq -r '.current_issue // "null"' "$f" 2>/dev/null || echo "null"
 }
 get_current_state() {
     local f="$PROJECT_DIR/.supervisor/session"
