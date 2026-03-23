@@ -919,7 +919,7 @@ check_and_advance() {
 check_pending_output() {
     # 查找所有未完成的输出文件
     local pending_files
-    pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null)
+    pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null || true)
     log "DEBUG: pending_files = [$pending_files]"
     if [[ -n "$pending_files" ]]; then
         for f in $pending_files; do
