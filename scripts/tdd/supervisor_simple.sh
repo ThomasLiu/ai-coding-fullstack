@@ -138,48 +138,67 @@ call_claude_code_checklist() {
 call_claude_code_red() {
     local issue_num=$1
     cd "$PROJECT_DIR"
-    
+
     local title=$(gh issue view "$issue_num" --json title --jq ".title")
+    local body=$(gh issue view "$issue_num" --json body --jq ".body")
     local output_file="$PROJECT_DIR/.supervisor/output_red_${issue_num}.txt"
-    
-    log "TDD RED (简化版): Issue #${issue_num}"
-    
-    # 创建占位测试文件
+    local prompt_file="/tmp/claude_prompt_red_${issue_num}.txt"
+    local test_file="$PROJECT_DIR/modules/core/tests/test_${issue_num}.sh"
+
+    rm -f "$output_file" "$prompt_file"
+
+    log "调用 Claude Code (TDD RED): Issue #${issue_num}"
+
+    cat > "$prompt_file" << 'PROMPTEOF'
+## 任务：为 Issue 生成 TDD RED 验收测试
+
+### Issue 信息
+- 标题: TITLE_REPLACED
+- 内容: BODY_REPLACED
+
+### 测试要求
+1. 创建可执行的 bash 测试脚本
+2. 验证 Issue 描述的核心功能
+3. 使用 set -e
+4. 功能未实现时 FAIL（exit 1）
+5. 功能正确实现时 PASS（exit 0）
+6. 输出清晰的诊断消息
+
+### 输出格式
+用 markdown bash 代码块输出完整的测试脚本。
+PROMPTEOF
+
+    sed -i '' "s/TITLE_REPLACED/${title}/g" "$prompt_file"
+    sed -i '' "s/BODY_REPLACED/${body}/g" "$prompt_file"
+
+    claude -p --model minimax/MiniMax-M2.7 --system-prompt "你是一个专业的 TDD 工程师，擅长编写精确的验收测试。" < "$prompt_file" > "$output_file"
+    rm -f "$prompt_file"
+
+    if [[ $? -ne 0 ]]; then
+        log "Claude Code (RED) 调用失败"
+        rm -f "$output_file"
+        return 1
+    fi
+
     mkdir -p "$PROJECT_DIR/modules/core/tests"
-    cat > "$PROJECT_DIR/modules/core/tests/test_${issue_num}.sh" << 'TESTEOF'
-#!/bin/bash
-# TDD RED - Issue #ISSUE_NUM
-# TODO: 实现验收测试
+    awk '/^```bash$/,/^```$/' "$output_file" | sed '1d;$d' > "$test_file"
 
-echo "=== Issue #ISSUE_NUM 验收测试 ==="
-echo "Status: red done"
-echo "文件: modules/core/tests/test_ISSUE_NUM.sh"
+    if [[ ! -s "$test_file" ]]; then
+        log "错误：未能提取测试脚本"
+        echo "$issue_num" > "$PROJECT_DIR/.supervisor/pending_issue.txt"
+        return 0
+    fi
 
-# 测试应该在功能未实现时 FAIL
-echo "功能未实现，测试失败"
-exit 1
-TESTEOF
-
-    # 替换占位符
-    sed -i '' "s/ISSUE_NUM/${issue_num}/g" "$PROJECT_DIR/modules/core/tests/test_${issue_num}.sh"
-    chmod +x "$PROJECT_DIR/modules/core/tests/test_${issue_num}.sh"
-    
-    # 提交
+    chmod +x "$test_file"
     git add "modules/core/tests/test_${issue_num}.sh"
     git commit -m "TDD RED: 验收测试 for #${issue_num}" || true
     git push origin "feature-issue-${issue_num}" || true
-    
-    # 创建输出
-    echo "## TDD RED 结果" > "$output_file"
-    echo "" >> "$output_file"
-    echo "文件: modules/core/tests/test_${issue_num}.sh" >> "$output_file"
-    echo "" >> "$output_file"
-    echo "Status: red done" >> "$output_file"
-    
+
     echo "$issue_num" > "$PROJECT_DIR/.supervisor/pending_issue.txt"
-    log "TDD RED (简化版) 完成"
+    log "Claude Code (RED) 完成"
     return 0
 }
+
 
 main() {
     local state=$(get_state)
