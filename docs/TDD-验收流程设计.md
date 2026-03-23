@@ -1,6 +1,6 @@
 # AI Coding Fullstack TDD + 验收流程设计方案
 
-**版本**: v1.0.0
+**版本**: v1.1.0
 **日期**: 2026-03-23
 **状态**: `draft`
 **作者**: 程序猿🦍
@@ -28,8 +28,8 @@
 │  1. 选择下一个 Issue                                                │
 │  2. 检查分支/PR 状态                                               │
 │  3. 创建分支和 PR (draft)                                          │
-│  4. 触发 Claude Code 执行 TDD                                      │
-│  5. 检查验收状态                                                    │
+│  4. 触发 Claude Code 执行各阶段                                     │
+│  5. 检查各阶段完成状态                                              │
 │  6. 决策合并                                                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -38,358 +38,628 @@
 │                    Claude Code (执行器)                              │
 ├─────────────────────────────────────────────────────────────────┤
 │  职责：                                                              │
-│  1. TDD RED - 阅读 Issue，编写验收测试                             │
-│  2. TDD GREEN - 实现功能让测试通过                                 │
-│  3. TDD REFACTOR - 重构优化                                        │
-│  4. 基于 SPEC.md 更新验收清单                                        │
-│  5. 提交代码更新                                                    │
+│  1. 验收清单评审 - 评审和优化验收标准                                │
+│  2. TDD RED - 编写验收测试                                         │
+│  3. 技术方案评审 - 设计方案评审和优化                                │
+│  4. TDD GREEN - 实现功能让测试通过                                   │
+│  5. TDD REFACTOR - 重构优化                                         │
+│  6. 更新验收清单和评审记录                                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      GitHub PR + Projects                            │
+│                      GitHub PR + Issues                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  状态机：                                                             │
-│  draft → review → approved → merged                                 │
+│  selected → checklist-review → red → design-review → green → refactor → review → merged │
 │                                                                   │
-│  Project Fields:                                                   │
-│  - Status (todo/in-progress/review/approved/done)                 │
-│  - Priority (P0/P1/P2/P3)                                         │
-│  - 评审阶段 (office-hours/ceo/eng/design)                        │
-│  - 验收标准 (checklist)                                            │
+│  Issue Discussion: 作为评审记录的载体                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 三、TDD 完整流程
+## 三、TDD 完整流程 (v1.1)
 
-### 阶段 1：选 Issue + 初始化 (Supervisor)
-
-```bash
-# 1. 检查状态
-if (state == working) {
-    check_pr_status(current_issue)
-    if (PR is open) skip
-    if (PR is merged) reset_state
-}
-
-# 2. 选择 Issue
-next_issue = select_next_issue()  # 跳过已有 PR 的
-
-# 3. 创建 PR (状态: draft)
-create_pr_draft(next_issue)
-update_state(working, next_issue)
-
-# 4. 触发 Claude Code
-trigger_claude_code_tdd(next_issue)
-```
-
-### 阶段 2：TDD RED + GREEN + REFACTOR (Claude Code)
-
-#### RED (验收测试)
-
-```
-1. 阅读 Issue 详情 + SPEC.md 相关章节
-2. 编写 bash 测试脚本 (验收标准)
-3. 运行测试确认失败
-4. 提交: "TDD RED: 验收测试 for #X"
-5. 更新 PR 描述: 添加验收清单
-```
-
-#### GREEN (实现)
-
-```
-1. 基于 SPEC.md 设计方案
-2. 实现最小功能
-3. 运行测试确认通过
-4. 提交: "TDD GREEN: 实现 #X"
-```
-
-#### REFACTOR (重构)
-
-```
-1. 检查代码质量和规范
-2. 重构优化
-3. 运行测试确认通过
-4. 提交: "TDD REFACTOR: 重构 #X"
-5. 更新 PR 状态 → review
-```
-
-### 阶段 3：验收 + 评审 (Supervisor + 人工)
-
-#### 验收检查 (Supervisor)
-
-```
-1. 运行测试确认通过
-2. 检查所有验收标准是否满足
-3. 更新 PR 状态 → pending_review
-4. 通知评审者
-```
-
-#### 分层评审 (基于 SPEC.md)
-
-| 优先级 | 评审流程 |
-|--------|----------|
-| P0-P1 | Office Hours → CEO → Eng → Design (完整流程) |
-| P2 | 简化为 Eng Review only |
-| P3 | self-approve (有测试即可，24h 无 objection 自动合并) |
-
-#### 合并决策
-
-**必须满足**：
-- ✅ 所有验收测试通过
-- ✅ 评审通过 (或 P3 self-approve)
-- ✅ 没有 blocking comments
-- ✅ 分支是最新的
-
----
-
-## 四、PR 模板
-
-```markdown
-## Issue
-#32: [💡] 想法2: 将 /cso 安全审查能力集成到 AI Coding 自动化流水线
-
-## 验收标准 (从 SPEC.md 提取)
-
-### 核心功能
-- [ ] 实现 /cso skill 集成
-- [ ] 支持 OWASP Top 10 审计
-- [ ] 支持 STRIDE 威胁建模
-
-### 自动化
-- [ ] 在 PR 创建时自动触发安全审查
-- [ ] 安全问题自动报告到 PR comment
-
-### 测试
-- [ ] 有对应的验收测试
-- [ ] 测试覆盖率 > 80%
-
-## TDD 记录
-
-### RED (2026-03-23)
-- [x] 编写验收测试
-- [x] 测试运行失败 ✓
-
-### GREEN (2026-03-23)
-- [x] 实现 /cso 集成
-- [x] 测试运行通过 ✓
-
-### REFACTOR (2026-03-23)
-- [x] 代码重构
-- [x] 规范检查通过 ✓
-
-## 评审状态
-
-| 阶段 | 状态 | 评审人 | 时间 |
-|------|------|--------|------|
-| Office Hours | ✅ | Thomas | 2026-03-23 |
-| CEO Review | ⏳ | - | - |
-| Eng Review | ⏳ | - | - |
-| Design Review | ⏳ | - | - |
-
-## 合并条件
-- [x] 验收测试通过
-- [ ] 评审通过
-- [ ] 没有 blocking comments
-```
-
----
-
-## 五、Supervisor 完整状态机
+### 流程图
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                         Supervisor 状态机                              │
+│                         完整 TDD 流程                               │
 └──────────────────────────────────────────────────────────────────┘
 
-IDLE
-  │
-  ▼
-SELECT_ISSUE ──────────────────────────────────────────────────────┐
-  │                                                                  │
-  ▼                                                                  │
-ISSUE_SELECTED ─────────────────────────────────────────────────┐  │
-  │                                                              │  │
-  ▼                                                              │  │
-CREATE_PR_DRAFT ───────────────────────────────────────────────┐ │  │
-  │                                                            │ │  │
-  ▼                                                            │ │  │
-WAIT_TDD ─────────────────────────────────────────────────────┐ │ │  │
-  │ (触发 Claude Code)                                         │ │ │  │
-  ▼                                                            │ │ │  │
-CHECK_TDD_STATUS                                                │ │ │  │
-  │                                                              │ │ │  │
-  ├─ TDD_IN_PROGRESS ──► WAIT_TDD (等待)                       │ │ │  │
-  │                                                              │ │ │  │
-  ├─ TDD_COMPLETE ──► RUN验收测试                               │ │ │  │
-  │                                                              │ │ │  │
-  └─ TDD_FAILED ──► MARK_FAILED ──► IDLE (需人工介入)          │ │ │  │
-                                                                    │ │ │  │
-                                                                    │ │ │  │
-RUN验收测试 ─────────────────────────────────────────────────────┘ │ │
-  │                                                                  │ │
-  ├─ 测试通过 ──► PENDING_REVIEW (评审)                            │ │
-  │                                                                  │ │
-  └─ 测试失败 ──► TDD_FAILED ──► IDLE                             │ │
-                                                                       │ │
-PENDING_REVIEW ─────────────────────────────────────────────────────┘ │
-  │                                                                    │
-  ▼                                                                    │
-分层评审 (基于优先级)                                                   │
-  │                                                                    │
-  ├─ P0/P1: Office Hours → CEO → Eng → Design                       │
-  ├─ P2: Eng Review only                                             │
-  └─ P3: self-approve (24h 无 objection)                            │
-  │                                                                    │
-  ▼                                                                    │
-REVIEW_PASSED ─────────────────────────────────────────────────────────┐
-  │                                                                   │
-  ▼                                                                   │
-AUTO_MERGEABLE                                                        │
-  │                                                                   │
-  ▼                                                                   │
-MERGED ──► IDLE                                                      │
+Issue Selected
+     │
+     ▼
+┌───────────────────────────────────────┐
+│  0. 验收清单评审 (Checklist Review)     │
+│  ───────────────────────────────────  │
+│  • Claude Code 评审验收标准               │
+│  • 优化验收清单                         │
+│  • 回复 Issue 作为评审记录                │
+│  • 输出: 优化后的验收清单                 │
+└───────────────────────────────────────┘
+     │ 完成后更新 Issue 状态: checklist-review-done
+     ▼
+┌───────────────────────────────────────┐
+│  1. TDD RED (验收测试)                  │
+│  ───────────────────────────────────  │
+│  • 基于优化后的验收清单编写测试           │
+│  • 运行测试确认失败                      │
+│  • 提交: "TDD RED: 验收测试 for #X"    │
+└───────────────────────────────────────┘
+     │ 完成后更新 Issue 状态: red-done
+     ▼
+┌───────────────────────────────────────┐
+│  2. 技术方案评审 (Design Review)        │
+│  ───────────────────────────────────  │
+│  • Claude Code 设计技术方案             │
+│  • 方案评审和优化                       │
+│  • 回复 Issue 作为评审记录               │
+│  • 输出: 技术方案文档                    │
+└───────────────────────────────────────┘
+     │ 完成后更新 Issue 状态: design-review-done
+     ▼
+┌───────────────────────────────────────┐
+│  3. TDD GREEN (实现)                   │
+│  ───────────────────────────────────  │
+│  • 基于评审后的技术方案实现              │
+│  • 运行测试确认通过                      │
+│  • 提交: "TDD GREEN: 实现 #X"         │
+└───────────────────────────────────────┘
+     │ 完成后更新 Issue 状态: green-done
+     ▼
+┌───────────────────────────────────────┐
+│  4. TDD REFACTOR (重构)                │
+│  ───────────────────────────────────  │
+│  • 代码重构和优化                        │
+│  • 运行测试确认通过                      │
+│  • 提交: "TDD REFACTOR: 重构 #X"      │
+└───────────────────────────────────────┘
+     │ 完成后更新 Issue 状态: refactor-done
+     ▼
+┌───────────────────────────────────────┐
+│  5. 最终评审 (Final Review)             │
+│  ───────────────────────────────────  │
+│  • 检查所有验收标准是否满足               │
+│  • 确认评审记录完整                      │
+│  • 更新 PR 状态 → ready-to-merge       │
+└───────────────────────────────────────┘
+     │ 满足合并条件
+     ▼
+MERGED
 ```
 
 ---
 
-## 六、关键文件结构
+### 阶段 0：验收清单评审 (Checklist Review)
+
+**执行者**: Claude Code (专业 Agent)
+
+**输入**:
+- Issue 内容
+- SPEC.md 相关章节
+
+**Prompt 模板**:
 
 ```
-ai-coding-fullstack/
-├── SPEC.md                           # 设计规格
-├── docs/
-│   └── TDD-验收流程设计.md           # 本文档
-├── .github/
-│   └── workflows/
-│       └── tdd-trigger.yml           # TDD 触发 workflow
-├── scripts/
-│   ├── supervisor.sh                 # 调度器
-│   ├── github-utils.sh               # GitHub 操作
-│   └── tdd/
-│       ├── red.sh                   # TDD RED 模板
-│       ├── green.sh                 # TDD GREEN 模板
-│       └── refactor.sh              # TDD REFACTOR 模板
-├── modules/
-│   └── core/
-│       ├── tests/
-│       │   ├── test_32.sh          # 验收测试
-│       │   └── verify_32.sh        # 验证脚本
-│       └── impl/                    # 实现目录
-│           └── cso-integration/
-└── pr-templates/
-    └── tdd-pr.md                    # PR 模板
+## 任务：评审 Issue #X 的验收清单
+
+### Issue 内容
+{issue_body}
+
+### SPEC.md 相关章节
+{spec_section}
+
+### 请完成以下任务：
+
+1. **分析验收标准**
+   - 识别核心功能需求
+   - 识别边界情况
+   - 识别非功能需求 (性能、安全、可维护性)
+
+2. **评审现有验收清单**
+   - 检查完整性
+   - 检查可测试性
+   - 检查优先级
+
+3. **优化验收清单**
+   - 添加遗漏的验收点
+   - 修正不清晰的描述
+   - 标注关键验收点 (P0/P1/P2)
+
+4. **输出优化后的验收清单**
+   - 使用 checkbox 格式
+   - 包含具体的验收条件
+
+### 回复格式
+请在 Issue 下回复，格式如下：
+
+---
+## 验收清单评审结果
+
+### 分析
+{分析内容}
+
+### 优化后的验收清单
+
+- [ ] P0 {验收点1}
+- [ ] P1 {验收点2}
+- [ ] P2 {验收点3}
+
+### 评审记录
+- 评审时间: {timestamp}
+- 评审人: Claude Code
+---
 ```
 
 ---
 
-## 七、合并条件检查脚本
+### 阶段 1：TDD RED (验收测试)
 
+**执行者**: Claude Code
+
+**Prompt 模板**:
+
+```
+## 任务：为 Issue #X 实现验收测试
+
+### Issue 内容
+{issue_body}
+
+### 验收清单
+{checklist_from_review}
+
+### 请完成以下任务：
+
+1. **阅读验收清单**
+   - 理解每个验收点的具体要求
+
+2. **编写验收测试**
+   - 在 modules/core/tests/ 目录创建 test_{issue}.sh
+   - 使用 bash 脚本
+   - 测试应该能验证验收清单中的每个点
+
+3. **验证测试失败**
+   - 运行测试确认失败 (因为功能还没实现)
+   - 这是预期的 TDD RED 行为
+
+4. **提交代码**
+   - 提交信息: "TDD RED: 验收测试 for #X"
+   - 包含测试文件
+
+5. **更新 Issue 状态**
+   - 在 Issue 评论中更新状态为 "RED done"
+
+### 测试文件模板
 ```bash
 #!/bin/bash
-# scripts/tdd/can_merge.sh
+# Issue #X 验收测试
 
-check_can_merge() {
-    local pr_num=$1
+set -e
+
+echo "=== Issue #X 验收测试 ==="
+
+# 测试 1: 核心功能
+test_core_function() {
+    # 实现验收测试逻辑
+    echo "测试: 核心功能"
+}
+
+# 测试 2: 边界情况
+test_edge_case() {
+    echo "测试: 边界情况"
+}
+
+# 运行所有测试
+test_core_function
+test_edge_case
+
+echo "=== 测试完成 ==="
+```
+
+### 回复格式
+请在 PR 下回复状态：
+- TDD RED: 开始
+- TDD RED: 完成 ({测试文件路径})
+```
+
+---
+
+### 阶段 2：技术方案评审 (Design Review)
+
+**执行者**: Claude Code (专业 Agent)
+
+**输入**:
+- Issue 内容
+- 验收清单
+- 现有代码结构
+
+**Prompt 模板**:
+
+```
+## 任务：为 Issue #X 设计技术方案
+
+### Issue 内容
+{issue_body}
+
+### 验收清单 (已优化)
+{checklist}
+
+### 现有代码结构
+{code_structure}
+
+### 请完成以下任务：
+
+1. **技术方案设计**
+   - 确定实现方式 (新增模块 / 修改现有代码 / 配置文件)
+   - 数据流设计
+   - 接口设计 (如果有)
+   - 依赖分析
+
+2. **技术方案评审**
+   - 评估可行性
+   - 评估性能影响
+   - 评估安全影响
+   - 识别风险点
+
+3. **优化技术方案**
+   - 解决评审中发现的问题
+   - 添加必要的异常处理
+   - 优化实现路径
+
+4. **输出技术方案文档**
+   - 在 Issue 或 PR 中创建技术方案
+
+### 技术方案文档模板
+```markdown
+## 技术方案
+
+### 实现方式
+{描述}
+
+### 数据流
+{描述}
+
+### 接口设计
+| 接口 | 输入 | 输出 |
+|------|------|------|
+| xxx | yyy | zzz |
+
+### 依赖
+- 依赖 A
+- 依赖 B
+
+### 风险评估
+| 风险 | 影响 | 缓解措施 |
+|------|------|----------|
+| xxx  | 高   | yyy      |
+
+### 实现步骤
+1. 步骤1
+2. 步骤2
+```
+
+### 回复格式
+请在 Issue/PR 下回复：
+- TDD Design Review: 开始
+- TDD Design Review: 完成 (附技术方案文档链接)
+```
+
+---
+
+### 阶段 3：TDD GREEN (实现)
+
+**执行者**: Claude Code
+
+**Prompt 模板**:
+
+```
+## 任务：为 Issue #X 实现功能
+
+### Issue 内容
+{issue_body}
+
+### 验收清单
+{checklist}
+
+### 技术方案
+{design_doc}
+
+### 请完成以下任务：
+
+1. **阅读技术方案**
+   - 理解实现路径
+   - 确认依赖已满足
+
+2. **实现功能**
+   - 在 modules/core/impl/ 目录实现
+   - 遵循项目代码规范
+
+3. **运行测试**
+   - 运行验收测试确认通过
+   - 如有测试失败，修复实现
+
+4. **提交代码**
+   - 提交信息: "TDD GREEN: 实现 #X"
+   - 包含实现代码
+
+5. **更新 Issue 状态**
+   - 在 Issue 评论中更新状态为 "GREEN done"
+
+### 回复格式
+请在 PR 下回复状态：
+- TDD GREEN: 开始
+- TDD GREEN: 完成 (测试通过/失败)
+```
+
+---
+
+### 阶段 4：TDD REFACTOR (重构)
+
+**执行者**: Claude Code
+
+**Prompt 模板**:
+
+```
+## 任务：重构 Issue #X 的实现
+
+### Issue 内容
+{issue_body}
+
+### 当前实现
+{current_impl}
+
+### 请完成以下任务：
+
+1. **代码质量检查**
+   - 检查代码规范
+   - 检查重复代码
+   - 检查可读性
+
+2. **重构优化**
+   - 提取公共函数
+   - 优化命名
+   - 添加必要的注释
+   - 优化性能 (如有需要)
+
+3. **运行测试**
+   - 确保重构后测试仍然通过
+
+4. **提交代码**
+   - 提交信息: "TDD REFACTOR: 重构 #X"
+
+5. **更新 Issue 状态**
+   - 在 Issue 评论中更新状态为 "REFACTOR done"
+```
+
+---
+
+### 阶段 5：最终评审 (Final Review)
+
+**执行者**: Supervisor + Claude Code
+
+**检查项**:
+
+```bash
+# 最终评审检查脚本
+final_review_check() {
+    local issue_num=$1
+    local pr_num=$2
     
-    # 1. 检查 CI 状态
-    if ! gh pr checks "$pr_num" --all passing 2>/dev/null; then
-        echo "❌ CI 未通过"
-        return 1
-    fi
+    # 1. 检查验收清单完成情况
+    local checklist_complete=$(gh issue view $issue_num --json body | jq -r '.body' | grep -c "^- \[x\]")
+    [[ $checklist_complete -eq 0 ]] && { echo "❌ 无验收清单完成记录"; return 1; }
     
-    # 2. 检查评审状态
-    local reviews=$(gh pr view "$pr_num" --json reviews --jq '.reviews')
-    if [[ $(echo "$reviews" | jq length 2>/dev/null || echo 0) -eq 0 ]]; then
-        echo "❌ 没有评审"
-        return 1
-    fi
+    # 2. 检查 TDD 提交记录
+    local tdd_commits=$(gh pr commits $pr_num | grep -c "TDD RED\|TDD GREEN\|TDD REFACTOR")
+    [[ $tdd_commits -lt 3 ]] && { echo "❌ TDD 流程不完整"; return 1; }
     
-    # 3. 检查 blocking comments
-    if gh pr view "$pr_num" --json comments --jq '.comments[].body' 2>/dev/null | grep -q "BLOCKING"; then
-        echo "❌ 有 blocking comments"
-        return 1
-    fi
+    # 3. 检查 CI 状态
+    local ci_status=$(gh pr checks $pr_num --json status | jq -r '.[0].status')
+    [[ "$ci_status" != "COMPLETED" ]] && { echo "❌ CI 未完成"; return 1; }
     
-    # 4. 检查分支状态
-    if ! gh pr view "$pr_num" --json mergeable --jq '.mergeable' 2>/dev/null | grep -q true; then
-        echo "❌ 分支有冲突或落后"
-        return 1
-    fi
+    # 4. 检查评审记录
+    local review_comments=$(gh issue comments $issue_num | grep -c "Review:\|review:")
+    [[ $review_comments -lt 2 ]] && { echo "❌ 评审记录不足"; return 1; }
     
-    echo "✅ 可以合并"
+    echo "✅ 最终评审通过"
     return 0
 }
 ```
 
 ---
 
-## 八、Supervisor v2 流程
+## 四、Supervisor 完整状态机 (v2)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                         Supervisor v2 状态机                              │
+└──────────────────────────────────────────────────────────────────┘
+
+IDLE
+  │
+  ▼
+SELECT_ISSUE
+  │
+  ▼
+CHECKLIST_REVIEW
+  │ 触发 Claude Code 评审验收清单
+  │ 等待 Issue 评论中出现 "验收清单评审结果"
+  ▼
+CHECKLIST_REVIEW_DONE
+  │
+  ▼
+TDD_RED
+  │ 触发 Claude Code 编写验收测试
+  │ 等待 PR commit "TDD RED"
+  ▼
+RED_DONE
+  │
+  ▼
+DESIGN_REVIEW
+  │ 触发 Claude Code 设计技术方案
+  │ 等待 Issue 评论中出现 "技术方案" 或 "Design Review"
+  ▼
+DESIGN_REVIEW_DONE
+  │
+  ▼
+TDD_GREEN
+  │ 触发 Claude Code 实现功能
+  │ 等待 PR commit "TDD GREEN"
+  ▼
+GREEN_DONE
+  │
+  ▼
+TDD_REFACTOR
+  │ 触发 Claude Code 重构
+  │ 等待 PR commit "TDD REFACTOR"
+  ▼
+REFACTOR_DONE
+  │
+  ▼
+FINAL_REVIEW
+  │ 运行最终评审检查
+  │ 检查所有阶段完成状态
+  ▼
+READY_TO_MERGE / NEEDS_FIX
+  │
+  ▼ (READY_TO_MERGE)
+MERGED ──► IDLE
+```
+
+---
+
+## 五、Issue 状态标签
+
+使用 GitHub Labels 管理状态：
+
+| Label | 描述 | 触发时机 |
+|-------|------|----------|
+| `status:selected` | 已选择 | Supervisor 选中 Issue |
+| `status:checklist-review` | 验收清单评审中 | 触发 Claude Code 评审 |
+| `status:red` | TDD RED 进行中 | 编写验收测试 |
+| `status:design-review` | 技术方案评审中 | 触发 Claude Code 设计 |
+| `status:green` | TDD GREEN 进行中 | 实现功能 |
+| `status:refactor` | TDD REFACTOR 进行中 | 重构代码 |
+| `status:review` | 最终评审 | 所有阶段完成 |
+| `status:ready` | 可合并 | 评审通过 |
+| `status:merged` | 已合并 | PR 已合并 |
+
+---
+
+## 六、PR 模板 (更新版)
+
+```markdown
+## Issue
+#X: {title}
+
+## 验收清单
+
+### P0 (必须满足)
+- [ ] {验收点1}
+- [ ] {验收点2}
+
+### P1 (重要)
+- [ ] {验收点3}
+- [ ] {验收点4}
+
+### P2 (优化)
+- [ ] {验收点5}
+
+## 评审记录
+
+| 阶段 | 状态 | 评审人 | 时间 |
+|------|------|--------|------|
+| 验收清单评审 | ✅ | Claude Code | 2026-03-23 |
+| 技术方案评审 | ✅ | Claude Code | 2026-03-23 |
+| 最终评审 | ⏳ | - | - |
+
+## TDD 记录
+
+| 阶段 | Commit | 状态 |
+|------|--------|------|
+| RED | abc123 | ✅ |
+| GREEN | def456 | ✅ |
+| REFACTOR | ghi789 | ✅ |
+
+## 合并条件
+
+- [x] 验收清单全部完成
+- [x] TDD 流程完成
+- [x] CI 通过
+- [ ] 人工评审通过
+```
+
+---
+
+## 七、Claude Code 调用方式
+
+### 通过 OpenClaw Cron Job 触发
+
+```yaml
+# .github/workflows/tdd-trigger.yml
+name: TDD Stage Trigger
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [synchronize, opened]
+
+jobs:
+  trigger-claude:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect stage
+        id: detect
+        run: |
+          COMMENT=${{ github.event.comment.body }}
+          if [[ "$COMMENT" == *"验收清单评审结果"* ]]; then
+            echo "stage=CHECKLIST_REVIEW_DONE" >> $GITHUB_OUTPUT
+          elif [[ "$COMMENT" == *"TDD RED: 完成"* ]]; then
+            echo "stage=RED_DONE" >> $GITHUB_OUTPUT
+          elif [[ "$COMMENT" == *"Design Review: 完成"* ]]; then
+            echo "stage=DESIGN_REVIEW_DONE" >> $GITHUB_OUTPUT
+          # ... more stages
+          
+      - name: Trigger next stage
+        run: |
+          # 调用 OpenClaw 执行下一阶段
+          curl -X POST ${{ secrets.OPENCLAW_WEBHOOK }} \
+            -d "stage=${{ steps.detect.outputs.stage }}"
+```
+
+### 或者通过 Supervisor 直接触发
 
 ```bash
-#!/bin/bash
-# scripts/supervisor_v2.sh
-
-source "$(dirname "$0")/github-utils.sh"
-
-main() {
-    log "=== Supervisor v2 ==="
+# Supervisor 调用 Claude Code 执行评审
+trigger_claude_code_review() {
+    local stage=$1
+    local issue_num=$2
     
-    local state=$(get_state)
-    local current_issue=$(get_current_issue)
-    
-    case "$state" in
-        idle)
-            select_and_init_issue
+    case "$stage" in
+        CHECKLIST_REVIEW)
+            # 构造 Prompt 并调用 Claude Code
+            claude -p --system "你是一个专业的技术评审专家..." << EOF
+            评审 Issue #$issue_num 的验收清单...
+            EOF
             ;;
-        working)
-            check_tdd_status
+        DESIGN_REVIEW)
+            # 构造技术方案设计 Prompt
             ;;
-        pending_review)
-            check_review_status
-            ;;
-        mergeable)
-            auto_merge
-            ;;
+        # ...
     esac
-}
-
-select_and_init_issue() {
-    local next=$(select_next_issue)
-    [[ -z "$next" ]] && { log "没有待处理 Issue"; return; }
-    
-    create_pr_draft "$next"
-    update_state working "$next"
-    trigger_claude_code_tdd "$next"
-}
-
-check_tdd_status() {
-    local issue=$1
-    
-    if has_tdd_complete "$issue"; then
-        if run_verify_tests "$issue"; then
-            update_state pending_review "$issue"
-            notify_reviewers "$issue"
-        else
-            update_state working "$issue"  # 让 Claude Code 继续
-        fi
-    else
-        log "TDD 进行中..."
-    fi
 }
 ```
 
 ---
 
-## 九、后续计划
+## 八、后续计划
 
-- [ ] 实现 Supervisor v2 (状态机)
-- [ ] 实现 TDD 触发 workflow
-- [ ] 创建 PR 模板
-- [ ] 实现合并条件检查脚本
-- [ ] 配置 GitHub Project 自动化
+- [ ] 实现 Supervisor v2 (带评审状态机)
+- [ ] 创建各阶段 Claude Code Prompt 模板
+- [ ] 配置 GitHub Actions 自动触发
+- [ ] 测试完整流程
 
 ---
 
@@ -398,3 +668,4 @@ check_tdd_status() {
 | 日期 | 版本 | 描述 |
 |------|------|------|
 | 2026-03-23 | v1.0.0 | 初始版本 |
+| 2026-03-23 | v1.1.0 | 添加验收清单评审和技术方案评审阶段 |
