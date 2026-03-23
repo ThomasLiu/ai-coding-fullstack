@@ -123,6 +123,460 @@ get_pr_number() {
 }
 
 # ============================================
+# 调用 Claude Code 执行任务
+# ============================================
+call_claude_code() {
+    local task="$1"
+    local prompt="$2"
+    
+    log "调用 Claude Code: $task"
+    
+    # 使用 claude -p 执行任务
+    # 超时 5 分钟
+    timeout 300 claude -p --model minimax/MiniMax-M2.7 --system "你是一个专业的 AI Coding 助手，擅长 TDD 开发流程。" << EOF
+$prompt
+EOF
+    
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]]; then
+        log "Claude Code 完成: $task"
+        return 0
+    elif [[ $exit_code -eq 124 ]]; then
+        log "Claude Code 超时: $task"
+        return 1
+    else
+        log "Claude Code 失败: $task, exit_code=$exit_code"
+        return 1
+    fi
+}
+
+# ============================================
+# 阶段 0: 验收清单评审
+# ============================================
+trigger_checklist_review() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    local body=$(gh issue view "$issue_num" --json body --jq '.body')
+    local pr_num=$(get_pr_number "$issue_num")
+    
+    log "TDD Checklist Review: Issue #$issue_num"
+    
+    local prompt="## 任务：评审 Issue #$issue_num 的验收清单
+
+### Issue 信息
+- 标题: $title
+- 内容: $body
+
+### 你的任务：
+
+1. **分析验收标准**
+   - 识别核心功能需求
+   - 识别边界情况
+   - 识别非功能需求 (性能、安全、可维护性)
+
+2. **评审现有验收清单**（如有）
+   - 检查完整性
+   - 检查可测试性
+   - 检查优先级
+
+3. **优化验收清单**
+   - 添加遗漏的验收点
+   - 修正不清晰的描述
+   - 标注关键验收点 (P0/P1/P2)
+
+4. **在 Issue 下回复评审结果**
+
+请回复格式如下：
+
+\`\`\`
+## 验收清单评审结果
+
+### 分析
+{分析内容}
+
+### 优化后的验收清单
+
+- [ ] P0 {验收点1}
+- [ ] P1 {验收点2}
+- [ ] P2 {验收点3}
+
+### 评审记录
+- 评审时间: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+- 评审人: Claude Code
+
+Status: checklist-review done
+\`\`\`
+"
+    
+    # 调用 Claude Code
+    if call_claude_code "checklist-review" "$prompt"; then
+        log "验收清单评审完成"
+        # Claude Code 应该已经更新了 Issue
+    else
+        log "验收清单评审失败"
+    fi
+}
+
+# ============================================
+# 阶段 1: TDD RED
+# ============================================
+trigger_tdd_red() {
+    local issue_num=$1
+    local pr_num=$2
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    local body=$(gh issue view "$issue_num" --json body --jq '.body')
+    local branch_name="feature/issue-$issue_num"
+    
+    log "TDD RED: Issue #$issue_num"
+    
+    # 确保在正确分支
+    git checkout "$branch_name" 2>/dev/null || true
+    
+    local prompt="## 任务：为 Issue #$issue_num 编写验收测试
+
+### Issue 信息
+- 标题: $title
+- 内容: $body
+
+### 你的任务：
+
+1. **阅读 Issue 和验收清单**
+   - 理解核心功能需求
+   - 确认验收标准
+
+2. **编写验收测试**
+   - 在 $PROJECT_DIR/modules/core/tests/ 目录创建 test_$issue_num.sh
+   - 使用 bash 脚本
+   - 测试应该覆盖验收清单中的每个点
+   - 测试应该在功能未实现时失败
+
+3. **运行测试确认失败**
+   - 运行测试，应该失败（因为功能还没实现）
+   - 这是 TDD RED 的预期行为
+
+4. **提交代码**
+   - 提交信息: \"TDD RED: 验收测试 for #$issue_num\"
+
+5. **在 Issue 下回复状态**
+
+请回复格式如下：
+
+\`\`\`
+## TDD RED 完成
+
+### 测试文件
+$PROJECT_DIR/modules/core/tests/test_$issue_num.sh
+
+### 测试结果
+运行测试结果（应该失败）
+
+### 提交
+已提交 "TDD RED: 验收测试 for #$issue_num"
+
+Status: red done
+\`\`\`
+"
+    
+    if call_claude_code "tdd-red" "$prompt"; then
+        log "TDD RED 完成"
+        # 推送分支
+        git push origin "$branch_name" 2>/dev/null || true
+    else
+        log "TDD RED 失败"
+    fi
+}
+
+# ============================================
+# 阶段 2: 技术方案评审
+# ============================================
+trigger_design_review() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    local body=$(gh issue view "$issue_num" --json body --jq '.body')
+    local pr_num=$(get_pr_number "$issue_num")
+    
+    log "TDD Design Review: Issue #$issue_num"
+    
+    local prompt="## 任务：为 Issue #$issue_num 设计技术方案
+
+### Issue 信息
+- 标题: $title
+- 内容: $body
+
+### 你的任务：
+
+1. **阅读验收清单和现有代码**
+   - 理解验收标准
+   - 查看 modules/core/impl/ 目录结构
+
+2. **设计技术方案**
+   - 确定实现方式 (新增模块 / 修改现有代码)
+   - 数据流设计
+   - 接口设计 (如果有)
+   - 依赖分析
+
+3. **技术方案评审**
+   - 评估可行性
+   - 评估性能影响
+   - 评估安全影响
+   - 识别风险点
+
+4. **输出技术方案文档**
+
+请在 Issue 下回复格式如下：
+
+\`\`\`
+## 技术方案
+
+### 实现方式
+{描述}
+
+### 数据流
+{描述}
+
+### 接口设计
+| 接口 | 输入 | 输出 |
+|------|------|------|
+| xxx | yyy | zzz |
+
+### 依赖
+- 依赖 A
+- 依赖 B
+
+### 风险评估
+| 风险 | 影响 | 缓解措施 |
+|------|------|----------|
+| xxx  | 高   | yyy      |
+
+### 实现步骤
+1. 步骤1
+2. 步骤2
+
+Status: design-review done
+\`\`\`
+"
+    
+    if call_claude_code "design-review" "$prompt"; then
+        log "技术方案评审完成"
+    else
+        log "技术方案评审失败"
+    fi
+}
+
+# ============================================
+# 阶段 3: TDD GREEN
+# ============================================
+trigger_tdd_green() {
+    local issue_num=$1
+    local pr_num=$2
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    local body=$(gh issue view "$issue_num" --json body --jq '.body')
+    local branch_name="feature/issue-$issue_num"
+    
+    log "TDD GREEN: Issue #$issue_num"
+    
+    # 确保在正确分支
+    git checkout "$branch_name" 2>/dev/null || true
+    
+    local prompt="## 任务：为 Issue #$issue_num 实现功能
+
+### Issue 信息
+- 标题: $title
+- 内容: $body
+
+### 你的任务：
+
+1. **阅读技术方案**
+   - 理解实现路径
+   - 确认依赖已满足
+
+2. **实现功能**
+   - 在 $PROJECT_DIR/modules/core/impl/ 目录实现
+   - 遵循项目代码规范
+
+3. **运行测试确认通过**
+   - 运行验收测试 test_$issue_num.sh
+   - 测试应该通过
+
+4. **提交代码**
+   - 提交信息: \"TDD GREEN: 实现 #$issue_num\"
+
+5. **在 Issue 下回复状态**
+
+请回复格式如下：
+
+\`\`\`
+## TDD GREEN 完成
+
+### 实现文件
+modules/core/impl/
+
+### 测试结果
+运行测试结果（应该通过）
+
+### 提交
+已提交 "TDD GREEN: 实现 #$issue_num"
+
+Status: green done
+\`\`\`
+"
+    
+    if call_claude_code "tdd-green" "$prompt"; then
+        log "TDD GREEN 完成"
+        # 推送分支
+        git push origin "$branch_name" 2>/dev/null || true
+    else
+        log "TDD GREEN 失败"
+    fi
+}
+
+# ============================================
+# 阶段 4: TDD REFACTOR
+# ============================================
+trigger_tdd_refactor() {
+    local issue_num=$1
+    local pr_num=$2
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    local branch_name="feature/issue-$issue_num"
+    
+    log "TDD REFACTOR: Issue #$issue_num"
+    
+    # 确保在正确分支
+    git checkout "$branch_name" 2>/dev/null || true
+    
+    local prompt="## 任务：重构 Issue #$issue_num 的实现
+
+### Issue 信息
+- 标题: $title
+
+### 你的任务：
+
+1. **代码质量检查**
+   - 检查代码规范
+   - 检查重复代码
+   - 检查可读性
+
+2. **重构优化**
+   - 提取公共函数
+   - 优化命名
+   - 添加必要的注释
+   - 优化性能 (如有需要)
+
+3. **运行测试确认通过**
+   - 确保重构后测试仍然通过
+
+4. **提交代码**
+   - 提交信息: \"TDD REFACTOR: 重构 #$issue_num\"
+
+5. **在 Issue 下回复状态**
+
+请回复格式如下：
+
+\`\`\`
+## TDD REFACTOR 完成
+
+### 重构内容
+{重构点}
+
+### 测试结果
+运行测试结果（应该通过）
+
+### 提交
+已提交 "TDD REFACTOR: 重构 #$issue_num"
+
+Status: refactor done
+\`\`\`
+"
+    
+    if call_claude_code "tdd-refactor" "$prompt"; then
+        log "TDD REFACTOR 完成"
+        # 推送分支
+        git push origin "$branch_name" 2>/dev/null || true
+    else
+        log "TDD REFACTOR 失败"
+    fi
+}
+
+# ============================================
+# 阶段 5: 最终评审
+# ============================================
+trigger_final_review() {
+    local issue_num=$1
+    local pr_num=$2
+    cd "$PROJECT_DIR"
+    
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
+    
+    log "Final Review: Issue #$issue_num"
+    
+    local prompt="## 任务：最终评审 Issue #$issue_num
+
+### Issue 信息
+- 标题: $title
+
+### 你的任务：
+
+1. **验收清单确认**
+   - 阅读 Issue 下的验收清单
+   - 确认 P0/P1 验收点都已满足
+   - 检查是否有遗留问题
+
+2. **代码质量确认**
+   - 检查实现代码是否符合规范
+   - 检查是否有明显的安全问题
+   - 检查是否有性能问题
+
+3. **测试确认**
+   - 确认验收测试覆盖充分
+   - 确认测试能够捕获关键 bug
+
+4. **生成最终评审报告**
+
+请在 Issue 下回复格式如下：
+
+\`\`\`
+## 最终评审报告
+
+### 验收清单确认
+- P0: 全部通过 / X 项未通过
+- P1: 全部通过 / X 项未通过
+
+### 代码质量
+- 规范: 通过 / 问题
+- 安全: 通过 / 问题
+- 性能: 通过 / 问题
+
+### 测试
+- 覆盖率: XX%
+- 关键路径: 全覆盖 / 缺失
+
+### 结论
+可以合并 / 需要修改
+
+### 建议
+{如有建议请列出}
+\`\`\`
+"
+    
+    if call_claude_code "final-review" "$prompt"; then
+        log "最终评审完成"
+    else
+        log "最终评审失败"
+    fi
+}
+
+# ============================================
 # 触发 Claude Code 执行各阶段
 # ============================================
 trigger_claude_code() {
@@ -154,46 +608,6 @@ trigger_claude_code() {
     esac
 }
 
-trigger_checklist_review() {
-    local issue_num=$1
-    log "TDD Checklist Review: Issue #$issue_num"
-    # TODO: 调用 Claude Code 执行验收清单评审
-}
-
-trigger_tdd_red() {
-    local issue_num=$1
-    local pr_num=$2
-    log "TDD RED: Issue #$issue_num"
-    # TODO: 调用 Claude Code 编写验收测试
-}
-
-trigger_design_review() {
-    local issue_num=$1
-    log "TDD Design Review: Issue #$issue_num"
-    # TODO: 调用 Claude Code 设计技术方案
-}
-
-trigger_tdd_green() {
-    local issue_num=$1
-    local pr_num=$2
-    log "TDD GREEN: Issue #$issue_num"
-    # TODO: 调用 Claude Code 实现功能
-}
-
-trigger_tdd_refactor() {
-    local issue_num=$1
-    local pr_num=$2
-    log "TDD REFACTOR: Issue #$issue_num"
-    # TODO: 调用 Claude Code 重构
-}
-
-trigger_final_review() {
-    local issue_num=$1
-    local pr_num=$2
-    log "Final Review: Issue #$issue_num"
-    # TODO: 调用 Claude Code 最终确认
-}
-
 # ============================================
 # 人工确认流程
 # ============================================
@@ -204,17 +618,26 @@ request_human_review() {
     cd "$PROJECT_DIR"
     
     gh issue comment "$issue_num" --body "
-## 最终评审待确认
+## ⚠️ 最终评审待确认
 
-Issue #$issue_num 已完成 TDD 流程，请确认：
+Issue #$issue_num (PR #$pr_num) 已完成 TDD 流程，请确认：
+
+### 合并前确认清单
 
 - [ ] P0 验收清单满足
-- [ ] P1 验收清单满足  
+- [ ] P1 验收清单满足
 - [ ] 无安全问题
+- [ ] 无 blocking issues
 
-回复以下任一标签：
+### 操作
+
+请回复以下任一标签：
 - \`LGTM\` - 可以合并
 - \`NEEDS_CHANGE\` - 需要修改，说明原因
+- \`BLOCKING\` - 阻塞，明确问题
+
+---
+评审人: @ThomasLiu
 " 2>/dev/null
     
     log "已请求人工确认 Issue #$issue_num"
@@ -225,10 +648,13 @@ Issue #$issue_num 已完成 TDD 流程，请确认：
 # ============================================
 auto_merge() {
     local pr_num=$1
+    local issue_num=$2
+    
     cd "$PROJECT_DIR"
     
-    if gh pr merge "$pr_num" --admin --merge --body "Auto-merged by AI Coding Fullstack Supervisor" 2>/dev/null; then
+    if gh pr merge "$pr_num" --admin --merge --body "Auto-merged by AI Coding Fullstack Supervisor v2" 2>/dev/null; then
         log "合并成功 PR #$pr_num"
+        gh issue close "$issue_num" --comment "✅ 已合并" 2>/dev/null || true
         return 0
     else
         log "合并失败 PR #$pr_num"
@@ -237,13 +663,15 @@ auto_merge() {
 }
 
 # ============================================
-# 最终评审
+# 最终评审 (来自 final_review.sh)
 # ============================================
 final_review() {
     local issue_num=$1
-    local pr_num=$2
+    local pr_num=$(get_pr_number "$issue_num")
     
-    log "=== 最终评审: Issue #$issue_num ==="
+    [[ -z "$pr_num" ]] && { log "Issue #$issue_num 没有 PR"; return 1; }
+    
+    log "=== 最终评审: Issue #$issue_num (PR #$pr_num) ==="
     
     # 检查阶段完成状态
     local stages=("checklist-review" "red" "design-review" "green" "refactor")
@@ -252,7 +680,7 @@ final_review() {
             log "X 阶段 $stage 未完成"
             return 1
         fi
-        log "  阶段 $stage 完成 ✓"
+        log "  ✅ 阶段 $stage 完成"
     done
     
     # 运行验收测试
@@ -261,7 +689,7 @@ final_review() {
         log "X 验收测试失败"
         return 1
     fi
-    log "  验收测试通过 ✓"
+    log "  ✅ 验收测试通过"
     
     # 检查 CI 状态
     log "检查 CI 状态..."
@@ -269,7 +697,7 @@ final_review() {
         log "X CI 未通过"
         return 1
     fi
-    log "  CI 通过 ✓"
+    log "  ✅ CI 通过"
     
     # 检查合并冲突
     log "检查合并冲突..."
@@ -277,7 +705,7 @@ final_review() {
         log "X 有合并冲突"
         return 1
     fi
-    log "  无合并冲突 ✓"
+    log "  ✅ 无合并冲突"
     
     # 检查评审记录
     log "检查评审记录..."
@@ -285,7 +713,7 @@ final_review() {
         log "X 评审记录不足"
         return 1
     fi
-    log "  评审记录完整 ✓"
+    log "  ✅ 评审记录完整"
     
     # 根据优先级决策
     local priority=$(get_issue_priority "$issue_num")
@@ -293,14 +721,12 @@ final_review() {
     
     case "$priority" in
         P0|P1)
-            log "P0/P1 需要人工确认"
+            log "⚠️ P0/P1 需要人工确认"
             request_human_review "$issue_num" "$pr_num"
             ;;
-        P2|P3)
-            log "P2/P3 自动合并"
-            if auto_merge "$pr_num"; then
-                update_state "idle" "null" "$issue_num"
-            fi
+        P2|P3|*)
+            log "💚 P2/P3 自动合并"
+            auto_merge "$pr_num" "$issue_num"
             ;;
     esac
     
@@ -354,7 +780,7 @@ create_pr_draft() {
     cd "$PROJECT_DIR"
     
     local branch_name="feature/issue-$issue_num"
-    local title=$(gh issue view "$issue_num" --json title --jq '.title' 2>/dev/null || echo "Issue $issue_num")
+    local title=$(gh issue view "$issue_num" --json title --jq '.title')
     
     # 创建分支
     if ! git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
@@ -368,11 +794,12 @@ create_pr_draft() {
     # 创建测试目录
     mkdir -p "$PROJECT_DIR/modules/core/tests"
     
-    # 提交空测试文件 (TDD RED 占位)
+    # 创建占位测试文件
     cat > "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh" << 'TESTEOF'
 #!/bin/bash
 # TDD RED 占位 - 待 Claude Code 填充
-echo "Issue #PLACEHOLDER 验收测试"
+echo "Issue #PLACEHOLDER 验收测试 (占位)"
+exit 1  # 故意失败，因为功能还没实现
 TESTEOF
     sed -i "s/PLACEHOLDER/$issue_num/g" "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
     chmod +x "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
