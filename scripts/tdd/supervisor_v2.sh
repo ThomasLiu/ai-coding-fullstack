@@ -1,0 +1,482 @@
+#!/bin/bash
+# AI Coding Fullstack Supervisor v2
+# 基于 TDD + 验收流程设计文档
+# 状态: draft
+
+set -e
+
+PROJECT_DIR="$HOME/Projects/ai-coding-fullstack"
+LOG_FILE="$HOME/Projects/ai-coding-fullstack/logs/supervisor_v2.log"
+SESSION_FILE="$HOME/Projects/ai-coding-fullstack/.supervisor/session"
+TDD_DIR="$PROJECT_DIR/scripts/tdd"
+
+mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$(dirname "$SESSION_FILE")"
+
+# 加载工具函数
+source "$PROJECT_DIR/scripts/github-utils.sh"
+
+# ============================================
+# 日志
+# ============================================
+log() { 
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
+
+# ============================================
+# 状态管理
+# ============================================
+get_state() {
+    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('state','idle'))" 2>/dev/null || echo "idle"
+}
+
+get_current_issue() {
+    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('current_issue','null'))" 2>/dev/null || echo "null"
+}
+
+get_last_issue() {
+    [[ -f "$SESSION_FILE" ]] && python3 -c "import sys,json; print(json.load(open('$SESSION_FILE')).get('last_issue','null'))" 2>/dev/null || echo "null"
+}
+
+update_state() {
+    local state="$1" current_issue="$2" last_issue="$3"
+    [[ "$current_issue" == "null" ]] && current_issue="null" || current_issue="\"$current_issue\""
+    [[ "$last_issue" == "null" ]] && last_issue="null" || last_issue="\"$last_issue\""
+    
+    cat > "$SESSION_FILE" << EOF
+{
+    "state": "$state",
+    "current_issue": $current_issue,
+    "last_issue": $last_issue,
+    "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+    log "状态更新: state=$state, current=$current_issue, last=$last_issue"
+}
+
+# ============================================
+# 阶段检查函数
+# ============================================
+check_stage_complete() {
+    local issue_num=$1
+    local stage=$2
+    
+    cd "$PROJECT_DIR"
+    local count=$(gh issue comments "$issue_num" 2>/dev/null | \
+        grep -c "Status.*$stage.*done\|$stage.*完成\|$stage.*✅" || echo 0)
+    
+    [[ $count -gt 0 ]]
+}
+
+run_acceptance_tests() {
+    local issue_num=$1
+    local test_file="$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
+    
+    if [[ ! -f "$test_file" ]]; then
+        log "X 验收测试文件不存在: $test_file"
+        return 1
+    fi
+    
+    bash "$test_file"
+}
+
+check_ci_status() {
+    local pr_num=$1
+    cd "$PROJECT_DIR"
+    
+    local checks=$(gh pr checks "$pr_num" --json status,conclusion 2>/dev/null)
+    local failed=$(echo "$checks" | jq -r '.[] | select(.conclusion=="failure") | .id' 2>/dev/null | wc -l)
+    [[ $failed -eq 0 ]]
+}
+
+check_mergeable() {
+    local pr_num=$1
+    cd "$PROJECT_DIR"
+    
+    local mergeable=$(gh pr view "$pr_num" --json mergeable --jq '.mergeable' 2>/dev/null)
+    [[ "$mergeable" == "true" ]]
+}
+
+check_review_comments() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    local count=$(gh issue comments "$issue_num" 2>/dev/null | \
+        grep -c "验收清单评审\|技术方案评审\|Design Review\|Checklist Review" || echo 0)
+    
+    [[ $count -ge 2 ]]
+}
+
+get_issue_priority() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    gh issue view "$issue_num" --json labels --jq '.labels[] | select(.name | startswith("P")) | .name' 2>/dev/null | \
+        head -1 || echo "P3"
+}
+
+get_pr_number() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    gh pr list --head "feature/issue-$issue_num" --state open --json number --jq '.[0].number' 2>/dev/null || echo ""
+}
+
+# ============================================
+# 触发 Claude Code 执行各阶段
+# ============================================
+trigger_claude_code() {
+    local stage="$1"
+    local issue_num="$2"
+    local pr_num="$3"
+    
+    log "触发 Claude Code: stage=$stage, issue=$issue_num"
+    
+    case "$stage" in
+        checklist-review)
+            trigger_checklist_review "$issue_num"
+            ;;
+        red)
+            trigger_tdd_red "$issue_num" "$pr_num"
+            ;;
+        design-review)
+            trigger_design_review "$issue_num"
+            ;;
+        green)
+            trigger_tdd_green "$issue_num" "$pr_num"
+            ;;
+        refactor)
+            trigger_tdd_refactor "$issue_num" "$pr_num"
+            ;;
+        final-review)
+            trigger_final_review "$issue_num" "$pr_num"
+            ;;
+    esac
+}
+
+trigger_checklist_review() {
+    local issue_num=$1
+    log "TDD Checklist Review: Issue #$issue_num"
+    # TODO: 调用 Claude Code 执行验收清单评审
+}
+
+trigger_tdd_red() {
+    local issue_num=$1
+    local pr_num=$2
+    log "TDD RED: Issue #$issue_num"
+    # TODO: 调用 Claude Code 编写验收测试
+}
+
+trigger_design_review() {
+    local issue_num=$1
+    log "TDD Design Review: Issue #$issue_num"
+    # TODO: 调用 Claude Code 设计技术方案
+}
+
+trigger_tdd_green() {
+    local issue_num=$1
+    local pr_num=$2
+    log "TDD GREEN: Issue #$issue_num"
+    # TODO: 调用 Claude Code 实现功能
+}
+
+trigger_tdd_refactor() {
+    local issue_num=$1
+    local pr_num=$2
+    log "TDD REFACTOR: Issue #$issue_num"
+    # TODO: 调用 Claude Code 重构
+}
+
+trigger_final_review() {
+    local issue_num=$1
+    local pr_num=$2
+    log "Final Review: Issue #$issue_num"
+    # TODO: 调用 Claude Code 最终确认
+}
+
+# ============================================
+# 人工确认流程
+# ============================================
+request_human_review() {
+    local issue_num=$1
+    local pr_num=$2
+    
+    cd "$PROJECT_DIR"
+    
+    gh issue comment "$issue_num" --body "
+## 最终评审待确认
+
+Issue #$issue_num 已完成 TDD 流程，请确认：
+
+- [ ] P0 验收清单满足
+- [ ] P1 验收清单满足  
+- [ ] 无安全问题
+
+回复以下任一标签：
+- \`LGTM\` - 可以合并
+- \`NEEDS_CHANGE\` - 需要修改，说明原因
+" 2>/dev/null
+    
+    log "已请求人工确认 Issue #$issue_num"
+}
+
+# ============================================
+# 自动合并
+# ============================================
+auto_merge() {
+    local pr_num=$1
+    cd "$PROJECT_DIR"
+    
+    if gh pr merge "$pr_num" --admin --merge --body "Auto-merged by AI Coding Fullstack Supervisor" 2>/dev/null; then
+        log "合并成功 PR #$pr_num"
+        return 0
+    else
+        log "合并失败 PR #$pr_num"
+        return 1
+    fi
+}
+
+# ============================================
+# 最终评审
+# ============================================
+final_review() {
+    local issue_num=$1
+    local pr_num=$2
+    
+    log "=== 最终评审: Issue #$issue_num ==="
+    
+    # 检查阶段完成状态
+    local stages=("checklist-review" "red" "design-review" "green" "refactor")
+    for stage in "${stages[@]}"; do
+        if ! check_stage_complete "$issue_num" "$stage"; then
+            log "X 阶段 $stage 未完成"
+            return 1
+        fi
+        log "  阶段 $stage 完成 ✓"
+    done
+    
+    # 运行验收测试
+    log "运行验收测试..."
+    if ! run_acceptance_tests "$issue_num"; then
+        log "X 验收测试失败"
+        return 1
+    fi
+    log "  验收测试通过 ✓"
+    
+    # 检查 CI 状态
+    log "检查 CI 状态..."
+    if ! check_ci_status "$pr_num"; then
+        log "X CI 未通过"
+        return 1
+    fi
+    log "  CI 通过 ✓"
+    
+    # 检查合并冲突
+    log "检查合并冲突..."
+    if ! check_mergeable "$pr_num"; then
+        log "X 有合并冲突"
+        return 1
+    fi
+    log "  无合并冲突 ✓"
+    
+    # 检查评审记录
+    log "检查评审记录..."
+    if ! check_review_comments "$issue_num"; then
+        log "X 评审记录不足"
+        return 1
+    fi
+    log "  评审记录完整 ✓"
+    
+    # 根据优先级决策
+    local priority=$(get_issue_priority "$issue_num")
+    log "Issue 优先级: $priority"
+    
+    case "$priority" in
+        P0|P1)
+            log "P0/P1 需要人工确认"
+            request_human_review "$issue_num" "$pr_num"
+            ;;
+        P2|P3)
+            log "P2/P3 自动合并"
+            if auto_merge "$pr_num"; then
+                update_state "idle" "null" "$issue_num"
+            fi
+            ;;
+    esac
+    
+    return 0
+}
+
+# ============================================
+# 选择下一个 Issue
+# ============================================
+select_next_issue() {
+    cd "$PROJECT_DIR"
+    
+    local current=$(get_current_issue)
+    [[ "$current" == "null" ]] && current=""
+    local last=$(get_last_issue)
+    [[ "$last" == "null" ]] && last=""
+    
+    local issues=$(gh issue list --state open --limit 20 2>/dev/null)
+    
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local num=$(echo "$line" | awk '{print $1}')
+        [[ -z "$num" ]] && continue
+        [[ -n "$current" && "$num" == "$current" ]] && continue
+        [[ -n "$last" && "$num" == "$last" ]] && continue
+        
+        # 检查是否有 PR
+        local pr_status=$(check_pr_status "$num")
+        if [[ "$pr_status" != "none" ]]; then
+            log "Issue #$num 已有 PR ($pr_status)，跳过"
+            continue
+        fi
+        
+        # 检查是否有分支
+        if branch_exists "$num"; then
+            log "Issue #$num 有分支但无 PR，继续处理"
+        fi
+        
+        echo "$num"
+        return 0
+    done <<< "$issues"
+    
+    return 1
+}
+
+# ============================================
+# 创建 PR Draft
+# ============================================
+create_pr_draft() {
+    local issue_num=$1
+    cd "$PROJECT_DIR"
+    
+    local branch_name="feature/issue-$issue_num"
+    local title=$(gh issue view "$issue_num" --json title --jq '.title' 2>/dev/null || echo "Issue $issue_num")
+    
+    # 创建分支
+    if ! git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
+        git checkout -b "$branch_name" 2>/dev/null || true
+        log "创建分支: $branch_name"
+    else
+        git checkout "$branch_name" 2>/dev/null || true
+        log "切换到分支: $branch_name"
+    fi
+    
+    # 创建测试目录
+    mkdir -p "$PROJECT_DIR/modules/core/tests"
+    
+    # 提交空测试文件 (TDD RED 占位)
+    cat > "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh" << 'TESTEOF'
+#!/bin/bash
+# TDD RED 占位 - 待 Claude Code 填充
+echo "Issue #PLACEHOLDER 验收测试"
+TESTEOF
+    sed -i "s/PLACEHOLDER/$issue_num/g" "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
+    chmod +x "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
+    
+    git add .
+    git commit -m "TDD RED: 验收测试 for #$issue_num" 2>/dev/null || true
+    
+    # 推送分支
+    log "推送分支..."
+    git push -u origin "$branch_name" 2>/dev/null || true
+    
+    # 创建 PR
+    local pr_url=$(gh pr create \
+        --title "feat #$issue_num: $title" \
+        --body "## Issue
+#$issue_num: $title
+
+## TDD 流程进行中
+
+- [ ] Checklist Review
+- [ ] TDD RED
+- [ ] Design Review
+- [ ] TDD GREEN
+- [ ] TDD REFACTOR
+- [ ] Final Review
+" \
+        --head "$branch_name" \
+        --base main 2>&1 | head -1)
+    
+    log "PR 创建: $pr_url"
+}
+
+# ============================================
+# 检查 TDD 状态并推进
+# ============================================
+check_and_advance() {
+    local issue_num=$(get_current_issue)
+    [[ "$issue_num" == "null" || -z "$issue_num" ]] && { log "没有正在处理的 Issue"; return 1; }
+    
+    local pr_num=$(get_pr_number "$issue_num")
+    [[ -z "$pr_num" ]] && { log "Issue #$issue_num 没有 PR"; return 1; }
+    
+    local stages=("checklist-review" "red" "design-review" "green" "refactor")
+    local next_stage=""
+    
+    for stage in "${stages[@]}"; do
+        if ! check_stage_complete "$issue_num" "$stage"; then
+            next_stage="$stage"
+            break
+        fi
+    done
+    
+    if [[ -z "$next_stage" ]]; then
+        log "所有阶段完成，执行最终评审"
+        final_review "$issue_num" "$pr_num"
+        return $?
+    fi
+    
+    log "下一阶段: $next_stage"
+    trigger_claude_code "$next_stage" "$issue_num" "$pr_num"
+}
+
+# ============================================
+# 主流程
+# ============================================
+main() {
+    log "=== AI Coding Supervisor v2 ==="
+    
+    cd "$PROJECT_DIR"
+    
+    local state=$(get_state)
+    local current_issue=$(get_current_issue)
+    
+    log "当前状态: state=$state, current_issue=$current_issue"
+    
+    case "$state" in
+        idle)
+            # 选择下一个 Issue
+            local next=$(select_next_issue)
+            if [[ -z "$next" ]]; then
+                log "没有待处理的 Issue"
+                return 0
+            fi
+            
+            log "选取 Issue #$next"
+            create_pr_draft "$next"
+            update_state "working" "$next" "null"
+            
+            # 触发第一个阶段
+            trigger_claude_code "checklist-review" "$next" ""
+            ;;
+            
+        working)
+            # 检查并推进 TDD 流程
+            check_and_advance
+            ;;
+            
+        *)
+            log "未知状态: $state，重置"
+            update_state "idle" "null" "null"
+            ;;
+    esac
+    
+    log "=== Supervisor v2 完成 ==="
+}
+
+main "$@"
