@@ -925,7 +925,7 @@ check_pending_output() {
         for f in $pending_files; do
             # 从文件名提取 issue_num: /tmp/claude_output_42.txt -> 42
             local issue_num
-            issue_num=$(echo "$f" | grep -oE '[0-9]+$' | tail -1)
+            issue_num=$(echo "$f" | grep -oE '_[0-9]+\.txt$' | grep -oE '[0-9]+')
             log "DEBUG: processing file=$f, issue_num=[$issue_num]"
             if [[ -n "$issue_num" ]]; then
                 log "发现未完成的输出，发帖到 Issue #$issue_num"
