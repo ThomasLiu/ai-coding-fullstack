@@ -894,3 +894,122 @@ Issue #$issue_num 已完成 TDD 流程，请确认：
 | 2026-03-23 | v1.0.0 | 初始版本 |
 | 2026-03-23 | v1.1.0 | 添加验收清单评审和技术方案评审阶段 |
 | 2026-03-23 | v1.2.0 | 细化 FINAL_REVIEW 详细实现 |
+
+---
+
+## 十、简化实现 v1.3 (2026-03-23)
+
+### 核心改动：每次只做一件事
+
+之前的 Supervisor 问题：
+- 尝试在一次运行中完成所有步骤
+- 被 SIGTERM 中断后状态不一致
+- Claude Code 调用耗时过长导致超时
+
+**简化原则**：每次运行只做一件事，完成后立即退出。下次运行继续。
+
+### 简化后的状态机
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Supervisor Simple 状态机                     │
+└─────────────────────────────────────────────────────────────┘
+
+idle ──选择 Issue，创建 PR──► claude-call ──调用 Claude Code──► post ──发帖到 GitHub──► idle (循环)
+
+```
+
+**状态说明**：
+
+| 状态 | 操作 | 完成后状态 |
+|------|------|-----------|
+| `idle` | 选择 Issue，创建 PR | `claude-call` |
+| `claude-call` | 调用 Claude Code 生成验收清单 | `post` |
+| `post` | 发帖到 GitHub Issue | `idle` |
+
+### 文件结构
+
+```
+scripts/tdd/
+├── supervisor_simple.sh      # 简化版 Supervisor (当前使用)
+├── supervisor_v2.sh         # 完整版 Supervisor (未完成)
+└── final_review.sh          # 最终评审 (未完成)
+```
+
+### supervisor_simple.sh 核心逻辑
+
+```bash
+case "$state" in
+    idle|done)
+        # 选择下一个 Issue，创建 PR
+        create_pr "$next_issue"
+        update_session "claude-call" "$next_issue"
+        ;;
+    claude-call)
+        # 调用 Claude Code 生成验收清单
+        call_claude_code "$current_issue"
+        update_session "post" "$current_issue"
+        ;;
+    post)
+        # 发帖到 GitHub
+        post_to_github "$current_issue"
+        update_session "idle" "null"  # 回到 idle，继续下一个
+        ;;
+esac
+```
+
+### Session 文件格式
+
+```json
+{
+    "state": "idle",
+    "current_issue": null,
+    "stage": "checklist-review"
+}
+```
+
+### 输出文件
+
+Claude Code 的输出保存到：
+```
+.supervisor/output_{issue_num}.txt
+```
+
+### 使用方式
+
+```bash
+# 每次定时任务运行
+bash scripts/tdd/supervisor_simple.sh
+```
+
+### 实现进度
+
+| 模块 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| 简化 Supervisor | `supervisor_simple.sh` | ✅ 完成 | 基础循环工作正常 |
+| Issue 选择 | - | ✅ 完成 | 跳过已有 PR 的 issue |
+| PR 创建 | - | ✅ 完成 | 空提交 + PR |
+| Claude Code 调用 | - | ✅ 完成 | 生成验收清单 |
+| GitHub 发帖 | - | ✅ 完成 | 提取 markdown 代码块发帖 |
+| TDD RED | - | ❌ 待实现 | 还没做 |
+| TDD GREEN | - | ❌ 待实现 | 还没做 |
+| TDD REFACTOR | - | ❌ 待实现 | 还没做 |
+| 最终评审 | `final_review.sh` | ❌ 待实现 | 还没做 |
+
+### 已测试通过的 Issue
+
+| Issue | PR | 验收清单 | 状态 |
+|-------|-----|---------|------|
+| #67 | #68 | ✅ 已发帖 | 完成 |
+| #66 | #69 | ⏳ 待处理 | 进行中 |
+
+---
+
+## Changelog
+
+| 日期 | 版本 | 描述 |
+|------|------|------|
+| 2026-03-23 | v1.0.0 | 初始版本 |
+| 2026-03-23 | v1.1.0 | 添加验收清单评审和技术方案评审阶段 |
+| 2026-03-23 | v1.2.0 | 细化 FINAL_REVIEW 详细实现 |
+| 2026-03-23 | v1.3.0 | 简化 Supervisor，每次只做一件事 |
