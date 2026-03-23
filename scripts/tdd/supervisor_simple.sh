@@ -187,8 +187,20 @@ template = """## 任务：为 Issue 生成 TDD RED 验收测试
 5. 功能正确实现时 PASS（exit 0）
 6. 输出清晰的诊断消息
 
-### 输出格式
-用 markdown bash 代码块输出完整的测试脚本。
+### 输出格式（必须严格遵循）
+直接输出以下格式的 markdown 代码块，不要包含任何其他说明文字：
+
+```bash
+#!/bin/bash
+# 这里是测试代码
+set -e
+# ... 测试逻辑 ...
+```
+
+重要：
+- 输出必须以 ```bash 开头，以 ``` 结尾
+- 代码块内只包含 bash 测试脚本，不要有任何解释性文字
+- 不要在代码块外输出任何内容
 """
 
 print(template.format(title=title_text, body=body_text))
@@ -204,7 +216,46 @@ PYCREATE
     fi
 
     mkdir -p "$PROJECT_DIR/modules/core/tests"
-    awk '/^```bash$/,/^```$/' "$output_file" | sed '1d;$d' > "$test_file"
+
+    # 尝试多种提取策略
+    local extracted=false
+
+    # 策略1: 提取 ```bash 代码块
+    if awk '/^```bash$/,/^```$/' "$output_file" | sed '1d;$d' > "$test_file" 2>/dev/null && [[ -s "$test_file" ]]; then
+        extracted=true
+        log "策略1成功：提取到 ```bash 代码块"
+    # 策略2: 提取 ``` 代码块（无语言标识）
+    elif awk '/^```$/,/^```$/' "$output_file" | grep -v '^```$' | sed '1d' > "$test_file" 2>/dev/null && [[ -s "$test_file" ]]; then
+        extracted=true
+        log "策略2成功：提取到 ``` 代码块"
+    # 策略3: 提取 #!/bin/bash 开头的脚本
+    elif awk '/^#!/,/^[^#]/' "$output_file" | grep -v '^[^#]' | head -50 > "$test_file" 2>/dev/null && [[ -s "$test_file" ]]; then
+        extracted=true
+        log "策略3成功：提取到 #!/bin/bash 脚本"
+    fi
+
+    if [[ "$extracted" != "true" ]]; then
+        # 策略4: 生成基础测试框架
+        log "策略4：生成基础测试框架"
+        cat > "$test_file" << 'TESHEOF'
+#!/bin/bash
+# TDD RED 测试框架 - Issue #ISSUE_NUM_PLACEHOLDER
+# 由 Claude Code TDD RED 自动生成
+
+set -e
+
+echo "=== TDD RED Test for Issue #ISSUE_NUM_PLACEHOLDER ==="
+echo "Status: 待实现"
+echo "FAIL: 测试框架已创建，功能尚未实现"
+
+# TODO: 实现 Issue #ISSUE_NUM_PLACEHOLDER 的验收测试
+# 验收标准:
+# 1. [待填充]
+
+exit 1
+TESHEOF
+        sed -i '' "s/ISSUE_NUM_PLACEHOLDER/$issue_num/g" "$test_file"
+    fi
 
     if [[ ! -s "$test_file" ]]; then
         log "错误：未能提取测试脚本"
