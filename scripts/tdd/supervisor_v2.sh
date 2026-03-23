@@ -143,7 +143,7 @@ call_claude_code() {
     
     # 使用 claude -p 执行任务
     # 超时 5 分钟
-    run_with_timeout 300 claude -p --model minimax/MiniMax-M2.7 --system "你是一个专业的 AI Coding 助手，擅长 TDD 开发流程。" << EOF
+    run_with_timeout 300 claude -p --model minimax/MiniMax-M2.7 --system-prompt "你是一个专业的 AI Coding 助手，擅长 TDD 开发流程。" << EOF
 $prompt
 EOF
     
