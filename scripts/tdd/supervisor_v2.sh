@@ -60,12 +60,11 @@ EOF
 check_stage_complete() {
     local issue_num=$1
     local stage=$2
-    
     cd "$PROJECT_DIR"
-    local count=$(gh issue comments "$issue_num" 2>/dev/null | \
-        grep -c "Status.*$stage.*done\|$stage.*完成\|$stage.*✅" || echo 0)
-    
-    [[ $count -gt 0 ]]
+    local count
+    count=$(gh issue comments "$issue_num" 2>/dev/null | grep -c "Status.*${stage}.*done" 2>/dev/null || echo "0")
+    count=$(echo "$count" | tr -d '[:space:]')
+    [[ "$count" -gt 0 ]]
 }
 
 run_acceptance_tests() {
