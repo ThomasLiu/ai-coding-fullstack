@@ -161,6 +161,31 @@ EOF
     fi
 }
 
+
+# ============================================
+# 辅助函数：发帖到 GitHub
+# ============================================
+post_to_github() {
+    local issue_num=$1
+    local comment_file=$2
+    
+    cd "$PROJECT_DIR"
+    
+    if [[ -f "$comment_file" && -s "$comment_file" ]]; then
+        # 提取 markdown 代码块内容
+        local body=$(awk '/^```markdown$/,/^```$/' "$comment_file" | sed '1d;$d')
+        
+        if [[ -n "$body" ]]; then
+            gh issue comment "$issue_num" --body "$body"
+            echo "已发帖到 Issue #$issue_num"
+        else
+            # 如果没有 markdown 代码块，直接发帖整个内容
+            gh issue comment "$issue_num" --body "$(cat "$comment_file")"
+            echo "已发帖到 Issue #$issue_num (全文)"
+        fi
+    fi
+}
+
 # ============================================
 # 阶段 0: 验收清单评审
 # ============================================
@@ -222,12 +247,17 @@ Status: checklist-review done
 "
     
     # 调用 Claude Code
-    if call_claude_code "checklist-review" "$prompt"; then
+    local output_file="/tmp/claude_checklist_$$.txt"
+    call_claude_code "checklist-review" "$prompt" > "$output_file"
+    
+    if [[ $? -eq 0 && -s "$output_file" ]]; then
         log "验收清单评审完成"
-        # Claude Code 应该已经更新了 Issue
+        # 发帖到 GitHub
+        post_to_github "$issue_num" "$output_file"
     else
         log "验收清单评审失败"
     fi
+    rm -f "$output_file"
 }
 
 # ============================================
