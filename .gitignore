@@ -1,0 +1,9 @@
+# 日志文件
+logs/
+.supervisor/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
