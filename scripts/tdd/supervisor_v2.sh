@@ -822,6 +822,9 @@ create_pr_draft() {
     local branch_name="feature/issue-$issue_num"
     local title=$(gh issue view "$issue_num" --json title --jq '.title')
     
+    # 保存 issue_num 到文件，供恢复时使用
+    echo "$issue_num" > "$PROJECT_DIR/.supervisor/current_issue"
+    
     # 创建分支
     if ! git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
         git checkout -b "$branch_name" 2>/dev/null || true
@@ -909,11 +912,12 @@ check_and_advance() {
 check_pending_output() {
     local pending_files=$(ls -t /tmp/claude_checklist_*.txt 2>/dev/null | head -1)
     if [[ -n "$pending_files" && -s "$pending_files" ]]; then
-        local issue_num=$(get_current_issue)
-        if [[ "$issue_num" != "null" && -n "$issue_num" ]]; then
+        local issue_num=$(cat "$PROJECT_DIR/.supervisor/current_issue" 2>/dev/null)
+        if [[ -n "$issue_num" ]]; then
             log "发现未完成的输出，发帖到 Issue #$issue_num"
             post_to_github "$issue_num" "$pending_files"
             rm -f "$pending_files"
+            rm -f "$PROJECT_DIR/.supervisor/current_issue"
         fi
     fi
 }
