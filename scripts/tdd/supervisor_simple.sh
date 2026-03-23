@@ -170,8 +170,9 @@ PROMPTEOF
 
     # 使用 Python 创建 prompt 文件，正确处理特殊字符
     python3 << 'PYCREATE' > "$prompt_file"
-title_text = """TITLE_REPLACED"""
-body_text = """BODY_REPLACED"""
+import sys
+title_text = sys.argv[1]
+body_text = sys.argv[2]
 
 template = """## 任务：为 Issue 生成 TDD RED 验收测试
 
@@ -193,6 +194,8 @@ template = """## 任务：为 Issue 生成 TDD RED 验收测试
 
 print(template.format(title=title_text, body=body_text))
 PYCREATE
+
+    python3 "$prompt_file" "$title" "$body" > "$prompt_file.tmp" && mv "$prompt_file.tmp" "$prompt_file"
 
     claude -p --model minimax/MiniMax-M2.7 --system-prompt "你是一个专业的 TDD 工程师，擅长编写精确的验收测试。" < "$prompt_file" > "$output_file"
     rm -f "$prompt_file"
