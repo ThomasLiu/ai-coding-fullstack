@@ -905,10 +905,26 @@ check_and_advance() {
 # ============================================
 # 主流程
 # ============================================
+# 检查是否有未完成的输出需要发帖
+check_pending_output() {
+    local pending_files=$(ls -t /tmp/claude_checklist_*.txt 2>/dev/null | head -1)
+    if [[ -n "$pending_files" && -s "$pending_files" ]]; then
+        local issue_num=$(get_current_issue)
+        if [[ "$issue_num" != "null" && -n "$issue_num" ]]; then
+            log "发现未完成的输出，发帖到 Issue #$issue_num"
+            post_to_github "$issue_num" "$pending_files"
+            rm -f "$pending_files"
+        fi
+    fi
+}
+
 main() {
     log "=== AI Coding Supervisor v2 ==="
     
     cd "$PROJECT_DIR"
+    
+    # 先检查是否有未完成的输出
+    check_pending_output
     
     local state=$(get_state)
     local current_issue=$(get_current_issue)
