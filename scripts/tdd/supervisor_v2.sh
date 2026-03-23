@@ -922,12 +922,20 @@ check_pending_output() {
     pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null || true)
     log "DEBUG: pending_files = [$pending_files]"
     if [[ -n "$pending_files" ]]; then
+        # 使用 associative array 避免重复处理
+        declare -A processed
         for f in $pending_files; do
+            # 跳过已处理的文件
+            if [[ -n "${processed[$f]}" ]]; then
+                continue
+            fi
+            processed[$f]=1
+            
             # 从文件名提取 issue_num: /tmp/claude_output_42.txt -> 42
             local issue_num
             issue_num=$(echo "$f" | grep -oE '_[0-9]+\.txt$' | grep -oE '[0-9]+')
             log "DEBUG: processing file=$f, issue_num=[$issue_num]"
-            if [[ -n "$issue_num" ]]; then
+            if [[ -n "$issue_num" && -f "$f" && -s "$f" ]]; then
                 log "发现未完成的输出，发帖到 Issue #$issue_num"
                 post_to_github "$issue_num" "$f"
                 rm -f "$f"
