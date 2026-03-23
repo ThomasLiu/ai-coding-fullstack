@@ -922,25 +922,20 @@ check_pending_output() {
     pending_files=$(ls -t /tmp/claude_output_*.txt 2>/dev/null || true)
     log "DEBUG: pending_files = [$pending_files]"
     if [[ -n "$pending_files" ]]; then
-        # 使用 associative array 避免重复处理
-        declare -A processed
-        for f in $pending_files; do
-            # 跳过已处理的文件
-            if [[ -n "${processed[$f]}" ]]; then
-                continue
-            fi
-            processed[$f]=1
-            
-            # 从文件名提取 issue_num: /tmp/claude_output_42.txt -> 42
+        # 只处理第一个文件（ls -t 已按时间排序）
+        local first_file
+        first_file=$(echo "$pending_files" | head -1)
+        if [[ -n "$first_file" && -f "$first_file" && -s "$first_file" ]]; then
+            # 从文件名提取 issue_num
             local issue_num
-            issue_num=$(echo "$f" | grep -oE '_[0-9]+\.txt$' | grep -oE '[0-9]+')
-            log "DEBUG: processing file=$f, issue_num=[$issue_num]"
-            if [[ -n "$issue_num" && -f "$f" && -s "$f" ]]; then
+            issue_num=$(echo "$first_file" | grep -oE '_[0-9]+\.txt$' | grep -oE '[0-9]+')
+            log "DEBUG: processing file=$first_file, issue_num=[$issue_num]"
+            if [[ -n "$issue_num" ]]; then
                 log "发现未完成的输出，发帖到 Issue #$issue_num"
-                post_to_github "$issue_num" "$f"
-                rm -f "$f"
+                post_to_github "$issue_num" "$first_file"
+                rm -f "$first_file"
             fi
-        done
+        fi
     else
         log "DEBUG: 没有发现待处理的输出文件"
     fi
