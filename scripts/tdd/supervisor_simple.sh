@@ -168,8 +168,31 @@ call_claude_code_red() {
 用 markdown bash 代码块输出完整的测试脚本。
 PROMPTEOF
 
-    sed -i '' "s/TITLE_REPLACED/${title}/g" "$prompt_file"
-    sed -i '' "s/BODY_REPLACED/${body}/g" "$prompt_file"
+    # 使用 Python 创建 prompt 文件，正确处理特殊字符
+    python3 << 'PYCREATE' > "$prompt_file"
+title_text = """TITLE_REPLACED"""
+body_text = """BODY_REPLACED"""
+
+template = """## 任务：为 Issue 生成 TDD RED 验收测试
+
+### Issue 信息
+- 标题: {title}
+- 内容: {body}
+
+### 测试要求
+1. 创建可执行的 bash 测试脚本
+2. 验证 Issue 描述的核心功能
+3. 使用 set -e
+4. 功能未实现时 FAIL（exit 1）
+5. 功能正确实现时 PASS（exit 0）
+6. 输出清晰的诊断消息
+
+### 输出格式
+用 markdown bash 代码块输出完整的测试脚本。
+"""
+
+print(template.format(title=title_text, body=body_text))
+PYCREATE
 
     claude -p --model minimax/MiniMax-M2.7 --system-prompt "你是一个专业的 TDD 工程师，擅长编写精确的验收测试。" < "$prompt_file" > "$output_file"
     rm -f "$prompt_file"
