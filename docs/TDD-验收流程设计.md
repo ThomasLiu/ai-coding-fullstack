@@ -669,3 +669,228 @@ trigger_claude_code_review() {
 |------|------|------|
 | 2026-03-23 | v1.0.0 | 初始版本 |
 | 2026-03-23 | v1.1.0 | 添加验收清单评审和技术方案评审阶段 |
+
+
+---
+
+## 九、最终评审 (Final Review) 详细实现
+
+详细实现待补充，包括：
+- 自动检查脚本 (final_review.sh)
+- 检查函数 (check_stage_complete, run_acceptance_tests, check_ci_status 等)
+- Claude Code 最终确认 Prompt
+- 人工确认流程
+- 合并条件检查清单
+
+是否需要我继续完善这部分？
+
+
+---
+
+## 九、最终评审 (Final Review) 详细实现
+
+### 9.1 最终评审流程图
+
+```
+REFACTOR_DONE
+    │
+    ▼
+┌───────────────────────────────────────┐
+│ 5.1 自动检查 (Supervisor)              │
+│ • 检查所有阶段完成状态                 │
+│ • 运行验收测试                        │
+│ • 检查 CI 状态                        │
+│ • 检查评审记录                         │
+└───────────────────────────────────────┘
+    │ 检查结果
+    ▼
+┌───────────────────────────────────────┐
+│ 5.2 Claude Code 最终确认               │
+│ • 确认验收清单全部满足                │
+│ • 确认无 blocking issues             │
+│ • 生成最终评审报告                    │
+└───────────────────────────────────────┘
+    │ 确认结果
+    ▼
+┌───────────────────────────────────────┐
+│ 5.3 合并决策                          │
+│ P0-P1: 需要人工确认                   │
+│ P2:   Supervisor 自动合并             │
+│ P3:   自动合并                       │
+└───────────────────────────────────────┘
+    │
+    ▼
+MERGED / NEEDS_WORK
+```
+
+### 9.2 自动检查脚本 (Supervisor)
+
+```bash
+#!/bin/bash
+# scripts/tdd/final_review.sh
+
+final_review() {
+    local issue_num=$1
+    local pr_num=$2
+    
+    log "=== 最终评审: Issue #$issue_num ==="
+    
+    # 检查阶段完成状态
+    local stages=("checklist-review" "red" "design-review" "green" "refactor")
+    for stage in "${stages[@]}"; do
+        if ! check_stage_complete "$issue_num" "$stage"; then
+            log "X 阶段 $stage 未完成"
+            return 1
+        fi
+    done
+    
+    # 运行验收测试
+    if ! run_acceptance_tests "$issue_num"; then
+        log "X 验收测试失败"
+        return 1
+    fi
+    
+    # 检查 CI 状态
+    if ! check_ci_status "$pr_num"; then
+        log "X CI 未通过"
+        return 1
+    fi
+    
+    # 检查合并冲突
+    if ! check_mergeable "$pr_num"; then
+        log "X 有合并冲突"
+        return 1
+    fi
+    
+    # 检查评审记录
+    if ! check_review_comments "$issue_num"; then
+        log "X 评审记录不足"
+        return 1
+    fi
+    
+    # 根据优先级决策
+    local priority=$(get_issue_priority "$issue_num")
+    
+    case "$priority" in
+        P0|P1)
+            request_human_review "$issue_num" "$pr_num"
+            ;;
+        P2|P3)
+            auto_merge "$pr_num"
+            ;;
+    esac
+}
+```
+
+### 9.3 详细检查函数
+
+```bash
+# 检查某阶段是否完成
+check_stage_complete() {
+    local issue_num=$1
+    local stage=$2
+    gh issue comments "$issue_num" | grep -q "Status.*$stage.*done" && return 0 || return 1
+}
+
+# 运行验收测试
+run_acceptance_tests() {
+    local issue_num=$1
+    bash "modules/core/tests/test_$issue_num.sh"
+}
+
+# 检查 CI 状态
+check_ci_status() {
+    local pr_num=$1
+    local failed=$(gh pr checks "$pr_num" --json conclusion | jq -r '.[] | select(.conclusion=="failure") | .id' | wc -l)
+    [[ $failed -eq 0 ]]
+}
+
+# 检查是否可以合并
+check_mergeable() {
+    local pr_num=$1
+    gh pr view "$pr_num" --json mergeable | jq -qr '.mergeable' | grep -q true
+}
+
+# 检查评审记录
+check_review_comments() {
+    local issue_num=$1
+    local count=$(gh issue comments "$issue_num" | grep -c "验收清单评审|技术方案评审")
+    [[ $count -ge 2 ]]
+}
+
+# 获取 Issue 优先级
+get_issue_priority() {
+    local issue_num=$1
+    gh issue view "$issue_num" --json labels | jq -r '.labels[] | select(.name | startswith("P")) | .name' | head -1 || echo "P3"
+}
+```
+
+### 9.4 Claude Code 最终确认 Prompt
+
+```bash
+trigger_final_review() {
+    local issue_num=$1
+    claude -p --model minimax/MiniMax-M2.7 << 'EOF'
+## 任务：最终评审 Issue #$issue_num
+
+### 请确认：
+
+1. **验收清单** - P0/P1 全部满足？
+2. **代码质量** - 规范/安全/性能
+3. **测试覆盖** - 是否充分
+
+### 输出格式
+---
+## 最终评审报告
+
+### 结论
+可以合并 / 需要修改
+
+### 建议
+{如有}
+---
+EOF
+}
+```
+
+### 9.5 人工确认流程 (P0/P1)
+
+```bash
+request_human_review() {
+    local issue_num=$1
+    local pr_num=$2
+    
+    gh issue comment "$issue_num" --body "
+## 最终评审待确认
+
+Issue #$issue_num 已完成 TDD 流程，请确认：
+
+- [ ] P0 验收清单满足
+- [ ] P1 验收清单满足  
+- [ ] 无安全问题
+
+回复: LGTM 合并 / NEEDS_CHANGE 说明原因
+"
+}
+```
+
+### 9.6 合并条件检查清单
+
+| # | 检查项 | 方法 | 失败处理 |
+|---|--------|------|----------|
+| 1 | 阶段完成 | check_stage_complete | 继续等待 |
+| 2 | 验收测试 | run_acceptance_tests | 通知修复 |
+| 3 | CI通过 | check_ci_status | 继续等待 |
+| 4 | 无冲突 | check_mergeable | 通知解决 |
+| 5 | 评审记录 | check_review_comments | 继续等待 |
+| 6 | 人工确认(P0/P1) | request_human_review | 等待确认 |
+
+---
+
+## Changelog
+
+| 日期 | 版本 | 描述 |
+|------|------|------|
+| 2026-03-23 | v1.0.0 | 初始版本 |
+| 2026-03-23 | v1.1.0 | 添加验收清单评审和技术方案评审阶段 |
+| 2026-03-23 | v1.2.0 | 细化 FINAL_REVIEW 详细实现 |
