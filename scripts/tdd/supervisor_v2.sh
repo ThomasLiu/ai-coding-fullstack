@@ -125,6 +125,16 @@ get_pr_number() {
 # ============================================
 # 调用 Claude Code 执行任务
 # ============================================
+run_with_timeout() {
+    local seconds=$1
+    shift
+    if command -v timeout &>/dev/null; then
+        timeout "$seconds" $@
+    else
+        perl -e 'alarm shift; exec @ARGV' "$seconds" $@
+    fi
+}
+
 call_claude_code() {
     local task="$1"
     local prompt="$2"
@@ -133,7 +143,7 @@ call_claude_code() {
     
     # 使用 claude -p 执行任务
     # 超时 5 分钟
-    timeout 300 claude -p --model minimax/MiniMax-M2.7 --system "你是一个专业的 AI Coding 助手，擅长 TDD 开发流程。" << EOF
+    run_with_timeout 300 claude -p --model minimax/MiniMax-M2.7 --system "你是一个专业的 AI Coding 助手，擅长 TDD 开发流程。" << EOF
 $prompt
 EOF
     
@@ -801,7 +811,7 @@ create_pr_draft() {
 echo "Issue #PLACEHOLDER 验收测试 (占位)"
 exit 1  # 故意失败，因为功能还没实现
 TESTEOF
-    sed -i "s/PLACEHOLDER/$issue_num/g" "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
+    sed -i '' 's/PLACEHOLDER/$issue_num/g' "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
     chmod +x "$PROJECT_DIR/modules/core/tests/test_$issue_num.sh"
     
     git add .
