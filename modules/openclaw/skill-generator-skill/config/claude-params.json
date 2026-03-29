@@ -1,0 +1,47 @@
+{
+  "params": [
+    {
+      "name": "--bare",
+      "version": "introduced",
+      "description": "Skip hooks/LSP sync for zero-overhead CI",
+      "use_case": "CI/CD environments where fast startup is critical",
+      "impact": "Reduces Claude Code startup time from ~3s to <500ms"
+    },
+    {
+      "name": "--channels",
+      "version": "v2.1.0+",
+      "description": "Remote device control via phone",
+      "use_case": "Remote debugging and device control",
+      "impact": "Enables Claude Code Channels for mobile access"
+    },
+    {
+      "name": "--effort",
+      "version": "recent",
+      "description": "Set task effort level (low/medium/high)",
+      "use_case": "Resource allocation and task sizing",
+      "impact": "Affects model selection and token budget"
+    },
+    {
+      "name": "--model",
+      "version": "all",
+      "description": "Specify model to use",
+      "use_case": "Model selection for different tasks",
+      "impact": "Allows switching between claude-opus, claude-sonnet, etc."
+    },
+    {
+      "name": "--resume",
+      "version": "all",
+      "description": "Resume from a previous session",
+      "use_case": "Continuing long-running tasks",
+      "impact": "Preserves context across sessions"
+    },
+    {
+      "name": "--max-tokens",
+      "version": "all",
+      "description": "Maximum tokens in response",
+      "use_case": "Controlling response length",
+      "impact": "Limits output for cost control"
+    }
+  ],
+  "last_updated": "2026-03-22"
+}
