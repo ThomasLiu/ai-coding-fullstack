@@ -21,8 +21,15 @@ main() {
     if [[ -n "$pending" ]]; then
         log "检测到未完成分支: $pending"
         local bi=$(echo "$pending" | grep -oE "[0-9]+" | tail -1)
-        if [[ -n "$bi" ]]; then update_state working "$bi" null; fi
-        log "等待分支完成..."; return 0
+        if [[ -n "$bi" ]]; then
+            local pr=$(check_pr_status "$bi")
+            log "PR 状态: $pr"
+            case "$pr" in
+                open) log "Issue #$bi PR 已存在，跳过"; update_state idle null "$bi"; return 0;;
+                merged) log "PR 已合并，更新状态"; update_state idle null "$bi"; return 0;;
+                *) log "Issue #$bi 无 PR 或 PR 已关闭，继续处理";;
+            esac
+        fi
     fi
     local next=$(select_next_issue)
     if [[ -z "$next" ]]; then log "没有待处理的 Issue"; update_state idle null null; return 0; fi
@@ -45,5 +52,6 @@ TESTEOF
     log "创建 PR..."
     create_pr "$next" "$title" "$BRANCH_NAME"
     log "=== Issue #$next 处理完成 ==="
+    update_state "idle" "null" "$next"
 }
 main "$@"
