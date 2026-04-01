@@ -11,6 +11,7 @@ check_pr_status() {
     local n=$1
     local bn="feature/issue-$n"
     local c
+    cd "$PROJECT_DIR"
     c=$(gh pr list --head "$bn" --state merged 2>/dev/null | wc -l | tr -d ' ')
     [[ -z "$c" ]] && c=0; [[ "$c" -gt 0 ]] && { echo merged; return; }
     c=$(gh pr list --head "$bn" --state open 2>/dev/null | wc -l | tr -d ' ')
@@ -20,6 +21,7 @@ check_pr_status() {
 branch_exists() {
     local n=$1
     local bn="feature/issue-$n"
+    cd "$PROJECT_DIR"
     run_with_timeout 10 git -C "$PROJECT_DIR" ls-remote --heads origin "$bn" 2>/dev/null | grep -q . && return 0
     git -C "$PROJECT_DIR" rev-parse --verify "$bn" >/dev/null 2>&1 && return 0
     return 1
@@ -44,17 +46,34 @@ EOF
     log "状态更新: state=$s, current=$i"
 }
 get_pending_branch() {
-    run_with_timeout 10 git -C "$PROJECT_DIR" branch -r 2>/dev/null | grep "feature/" | grep -v "feature/issue-1" | grep -v "feature/issue-None" | head -1 | sed 's/.*origin\///' | tr -d ' '
+    local branches=$(run_with_timeout 10 git -C "$PROJECT_DIR" branch -r 2>/dev/null | grep "feature/" | grep -v "feature/issue-1" | grep -v "feature/issue-None")
+    [[ -z "$branches" ]] && return 1
+    while IFS= read -r branch; do
+        local bn=$(echo "$branch" | sed 's/.*origin\///' | tr -d ' ')
+        [[ -z "$bn" ]] && continue
+        local issue_num=$(echo "$bn" | grep -oE "[0-9]+" | tail -1)
+        [[ -z "$issue_num" ]] && continue
+        # Check if there's an open PR for this branch
+        cd "$PROJECT_DIR"
+        local pr_count=$(gh pr list --head "$bn" --state open 2>/dev/null | wc -l | tr -d ' ')
+        [[ "$pr_count" -gt 0 ]] && continue
+        echo "$bn"
+        return 0
+    done <<< "$branches"
+    return 1
 }
 select_next_issue() {
     cd "$PROJECT_DIR"
     local cur=$(get_current_issue); [[ "$cur" == null ]] && cur=""
+    local last=$(python3 -c "import sys,json; f=open('$PROJECT_DIR/.supervisor/session'); print(json.load(f).get('last_issue','null'))" 2>/dev/null || echo null)
+    [[ "$last" == null ]] && last=""
     local issues=$(gh issue list --state open --limit 20 2>/dev/null)
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         local num=$(echo "$line" | awk '{print $1}')
         [[ -z "$num" ]] && continue
         [[ -n "$cur" && "$num" == "$cur" ]] && continue
+        [[ -n "$last" && "$num" == "$last" ]] && continue
         local pr=$(check_pr_status "$num")
         if [[ "$pr" != none ]]; then log "Issue #$num 已有 PR ($pr)，跳过"; continue; fi
         if branch_exists "$num"; then log "Issue #$num 有分支但无 PR，继续"; fi
